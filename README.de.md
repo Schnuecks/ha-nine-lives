@@ -15,6 +15,9 @@ Einem Gerät ein neues Leben geben: es in Home Assistant ersetzen, ohne Automati
 Dashboards und Verlauf zu zerstören – zum Beispiel beim Umzug von Sensoren von Zigbee auf
 Thread/Matter oder wenn ein defektes Gerät gegen ein neues getauscht wird.
 
+**Neu hier?** Die [Anleitung](docs/anleitung.md) erklärt einen Tausch Schritt für Schritt
+und was genau dabei passiert.
+
 <p align="center"><img src="docs/screenshots/preview-de.png" width="720" alt="Vorschau eines Tauschs"></p>
 
 ## Warum

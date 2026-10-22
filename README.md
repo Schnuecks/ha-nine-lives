@@ -15,6 +15,9 @@ Give a device a new life: replace it in Home Assistant without breaking your aut
 dashboards and history – for example when moving sensors from Zigbee to Thread/Matter, or
 when a broken device is swapped for a new one.
 
+**New here?** The [guide](docs/guide.md) explains a swap step by step and what exactly
+happens behind it.
+
 <p align="center"><img src="docs/screenshots/preview.png" width="720" alt="Preview of a swap"></p>
 
 ## Why
