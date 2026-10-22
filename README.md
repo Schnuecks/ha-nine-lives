@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.svg" width="96" alt="Nine Lives"></p>
+
 # Nine Lives
 
 **English** · [Deutsch](README.de.md)
