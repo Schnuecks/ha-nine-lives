@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## 1.0.1
+
+### Changed
+- The HACS validation now runs with all checks, including the one for the icon. The
+  integration itself is unchanged; this release exists so the version listed in HACS has
+  passed the full validation.
+
 ## 1.0.0
 
 First release.
