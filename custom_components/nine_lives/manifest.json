@@ -1,6 +1,6 @@
 {
-  "domain": "meshmove",
-  "name": "MeshMove",
+  "domain": "nine_lives",
+  "name": "Nine Lives",
   "after_dependencies": [
     "recorder"
   ],
@@ -14,10 +14,10 @@
     "panel_custom",
     "websocket_api"
   ],
-  "documentation": "https://github.com/Schnuecks/meshmove",
+  "documentation": "https://github.com/Schnuecks/ha-nine-lives",
   "integration_type": "service",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/Schnuecks/meshmove/issues",
+  "issue_tracker": "https://github.com/Schnuecks/ha-nine-lives/issues",
   "requirements": [],
   "single_config_entry": true,
   "version": "0.0.0"

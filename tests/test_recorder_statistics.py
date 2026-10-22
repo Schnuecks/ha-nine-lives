@@ -21,8 +21,8 @@ from pytest_homeassistant_custom_component.components.recorder.common import (
     statistics_during_period,
 )
 
-from custom_components.meshmove.energy import async_try_apply
-from custom_components.meshmove.swap import SwapManager, async_plan
+from custom_components.nine_lives.energy import async_try_apply
+from custom_components.nine_lives.swap import SwapManager, async_plan
 
 OLD = "sensor.washer_energy"
 ATTRS = {

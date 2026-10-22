@@ -1,0 +1,12 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Nine Lives adds a panel to the sidebar where you can replace one device with another."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Nine Lives is already set up."
+    }
+  }
+}

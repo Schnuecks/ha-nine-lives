@@ -1,6 +1,6 @@
 """Tests for pairing old and new entities."""
 
-from custom_components.meshmove.matching import EntityInfo, propose_pairs
+from custom_components.nine_lives.matching import EntityInfo, propose_pairs
 
 
 def _e(entity_id, device_class=None, unit=None, state_class=None, name=None):

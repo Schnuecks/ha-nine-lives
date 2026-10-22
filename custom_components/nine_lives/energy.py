@@ -3,8 +3,8 @@
 Home Assistant adds up the changes of a meter. When the new meter takes over the old
 meter's statistics, the step from the old meter's last value to the new meter's first
 value is counted as well: as a meter reset (the new value counts in full) or as a plain
-change. Either way it is not real consumption, so MeshMove works out that step with the
-same rules and subtracts it again once the recorder has compiled the period of the swap.
+change. Either way it is not real consumption, so Nine Lives works out that step with
+the same rules and subtracts it again once the recorder has compiled the swap's period.
 """
 
 from __future__ import annotations

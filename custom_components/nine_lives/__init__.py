@@ -1,4 +1,4 @@
-"""MeshMove: replace a device without breaking automations, dashboards and history."""
+"""Nine Lives: replace a device without breaking automations, dashboards and history."""
 
 from __future__ import annotations
 
@@ -14,14 +14,14 @@ from . import websocket
 from .const import DOMAIN
 from .swap import SwapManager
 
-PANEL_URL = "meshmove"
-STATIC_URL = "/meshmove_static"
-PANEL_JS = Path(__file__).parent / "frontend" / "meshmove-panel.js"
+PANEL_URL = "nine-lives"
+STATIC_URL = "/nine_lives_static"
+PANEL_JS = Path(__file__).parent / "frontend" / "nine-lives-panel.js"
 _STATIC_REGISTERED = f"{DOMAIN}_static_registered"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up MeshMove from a config entry."""
+    """Set up Nine Lives from a config entry."""
     manager = SwapManager(hass)
     await manager.async_load()
     hass.data[DOMAIN] = manager
@@ -40,10 +40,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL,
-        webcomponent_name="meshmove-panel",
+        webcomponent_name="nine-lives-panel",
         module_url=f"{STATIC_URL}/{PANEL_JS.name}?v={digest}",
-        sidebar_title="MeshMove",
-        sidebar_icon="mdi:swap-horizontal-bold",
+        sidebar_title="Nine Lives",
+        sidebar_icon="mdi:cat",
         require_admin=True,
     )
     return True

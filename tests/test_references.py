@@ -1,6 +1,6 @@
 """Tests for rewriting device references."""
 
-from custom_components.meshmove.references import rewrite
+from custom_components.nine_lives.references import rewrite
 
 ID_MAP = {"olddevice": "newdevice", "oldentity": "newentity"}
 

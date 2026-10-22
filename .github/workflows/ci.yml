@@ -50,7 +50,7 @@ jobs:
     container:
       image: python:3.14
       volumes:
-        - meshmove-ci-pip:/root/.cache/pip
+        - nine-lives-ci-pip:/root/.cache/pip
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       PIP_ROOT_USER_ACTION: ignore
