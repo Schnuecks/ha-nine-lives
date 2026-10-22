@@ -10,14 +10,19 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components.recorder import Recorder, get_instance
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.components.recorder.common import (
     async_wait_recording_done,
     do_adhoc_statistics,
     statistics_during_period,
 )
+
+from custom_components.meshmove.energy import async_try_apply
+from custom_components.meshmove.swap import SwapManager, async_plan
 
 OLD = "sensor.washer_energy"
 ATTRS = {
@@ -85,3 +90,67 @@ async def test_new_meter_continues_sum_of_removed_meter(
     await _compile(hass, p0 + 2 * period)
 
     assert await _sums(hass, p0) == [10.0, 15.0, 17.0]
+
+
+async def test_swap_corrects_the_jump_of_a_used_meter(
+    recorder_mock: Recorder, hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """A used plug at 50 kWh replaces a meter at 115 kWh: the sum must not jump."""
+    await async_setup_component(hass, "sensor", {})
+    dev_reg = dr.async_get(hass)
+    reg = er.async_get(hass)
+    devices = {}
+    for name in ("zha", "matter"):
+        entry = MockConfigEntry(domain=name)
+        entry.add_to_hass(hass)
+        devices[name] = dev_reg.async_get_or_create(
+            config_entry_id=entry.entry_id, identifiers={(name, "plug")}
+        ).id
+    reg.async_get_or_create(
+        "sensor",
+        "zha",
+        "old-plug",
+        device_id=devices["zha"],
+        suggested_object_id="washer_energy",
+    )
+    new = reg.async_get_or_create(
+        "sensor",
+        "matter",
+        "new-plug",
+        device_id=devices["matter"],
+        suggested_object_id="new_plug_energy",
+    ).entity_id
+
+    p0 = dt_util.utcnow().replace(minute=0, second=0, microsecond=0) + timedelta(
+        hours=1
+    )
+    period = timedelta(minutes=5)
+    freezer.move_to(p0 + timedelta(minutes=1))
+    hass.states.async_set(OLD, "100", ATTRS)
+    hass.states.async_set(new, "50", ATTRS)
+    freezer.move_to(p0 + timedelta(minutes=3))
+    hass.states.async_set(OLD, "110", ATTRS)
+    freezer.move_to(p0 + period + timedelta(minutes=1))
+    hass.states.async_set(OLD, "115", ATTRS)
+    await async_wait_recording_done(hass)
+    await _compile(hass, p0)
+    await _compile(hass, p0 + period)
+
+    freezer.move_to(p0 + 2 * period + timedelta(minutes=1))
+    manager = SwapManager(hass)
+    plan = await async_plan(hass, devices["zha"], devices["matter"], [(OLD, new)])
+    await manager.async_apply(plan)
+    # What the integrations do: the old entity is gone, the new one reports.
+    hass.states.async_set(OLD, "50.5", ATTRS)
+    freezer.move_to(p0 + 2 * period + timedelta(minutes=3))
+    hass.states.async_set(OLD, "52", ATTRS)
+    await async_wait_recording_done(hass)
+    await _compile(hass, p0 + 2 * period)
+    assert await _sums(hass, p0) == [10.0, 15.0, 67.0]
+
+    assert len(manager.pending) == 1
+    assert await async_try_apply(hass, manager.pending[0]) is True
+    await async_wait_recording_done(hass)
+
+    assert await _sums(hass, p0) == [10.0, 15.0, 17.0]
+    manager.async_unload()

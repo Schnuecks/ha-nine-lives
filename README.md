@@ -17,6 +17,9 @@ device is swapped for a new one.
 4. Apply: the new entities take over the old entity IDs, and every reference is updated.
    A backup is written first, and one click undoes the swap.
 
+Meters (energy, gas, water) keep a continuous sum: the step from the old meter's
+reading to the new one's is not counted as consumption.
+
 Places MeshMove cannot change safely (YAML packages, `!include` files, device triggers
 without a counterpart on the new device) are listed instead of being changed silently.
 

@@ -18,6 +18,9 @@ ein defektes Gerät gegen ein neues getauscht wird.
 4. Ausführen: Die neuen Entitäten übernehmen die alten Entity-IDs, alle Verweise werden
    angepasst. Vorher wird eine Sicherung angelegt, ein Klick macht den Tausch rückgängig.
 
+Zähler (Energie, Gas, Wasser) behalten eine durchgehende Summe: Der Sprung vom
+Zählerstand des alten zum neuen Gerät zählt nicht als Verbrauch.
+
 Stellen, die MeshMove nicht sicher ändern kann (YAML-Pakete, `!include`-Dateien,
 Geräte-Trigger ohne Gegenstück am neuen Gerät), werden aufgelistet statt stillschweigend
 geändert.
