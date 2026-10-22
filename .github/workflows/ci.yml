@@ -68,7 +68,8 @@ jobs:
     needs: changes
     runs-on: ubuntu-24.04
     steps:
-      - if: needs.changes.outputs.code == 'true'
+      # The HACS action can only validate public repositories.
+      - if: needs.changes.outputs.code == 'true' && !github.event.repository.private
         uses: hacs/action@d556e736723344f83838d08488c983a15381059a  # 22.5.0
         with:
           category: integration
