@@ -11,9 +11,11 @@ which is what undo relies on.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -22,15 +24,20 @@ from homeassistant.config import (
     SCENE_CONFIG_PATH,
     SCRIPT_CONFIG_PATH,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_point_in_utc_time,
+)
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 from homeassistant.util.file import write_utf8_file_atomic
 from homeassistant.util.yaml import dump, parse_yaml
 
+from . import energy
 from .const import DOMAIN
 from .references import Change, Review, rewrite
 
@@ -41,6 +48,15 @@ CONFIG_FILES = {
 }
 # YAML tags such as !secret or !include: loading and dumping would inline their values.
 _YAML_TAG = re.compile(r"(?:^|[\s:\[,-])!\w")
+
+_LOGGER = logging.getLogger(__name__)
+# The recorder logs that it cannot move the new entity's history onto the taken-over
+# ID. That is intended (the old history stays there), so these messages are hidden.
+_RECORDER_LOGGERS = (
+    "homeassistant.components.recorder.entity_registry",
+    "homeassistant.components.recorder.table_managers.statistics_meta",
+)
+_FILTER_SECONDS = 120
 
 STORAGE_VERSION = 1
 STORAGE_KEY = f"{DOMAIN}.backups"
@@ -105,7 +121,7 @@ def _plan_file(
     text: str,
     id_map: dict[str, str],
     entity_domains: dict[str, str],
-    new_integration: str | None,
+    new_integrations: set[str],
 ) -> FilePlan:
     plan = FilePlan(kind, path, text)
     if not any(old_id in text for old_id in id_map):
@@ -118,7 +134,7 @@ def _plan_file(
     items = data.items() if isinstance(data, dict) else enumerate(data or [])
     new_data: dict | list = {} if isinstance(data, dict) else []
     for key, item in items:
-        result = rewrite(item, id_map, entity_domains, new_integration)
+        result = rewrite(item, id_map, entity_domains, new_integrations)
         label = _item_label(kind, item, key)
         plan.changes += [
             Change(f"{label}: {c.path}", c.old, c.new) for c in result.changes
@@ -175,10 +191,11 @@ async def async_plan(
         entity_domains[new_entry.id] = new_entry.domain
 
     new_device = dev_reg.async_get(new_device_id)
-    new_integration = None
-    if new_device and new_device.primary_config_entry:
-        entry = hass.config_entries.async_get_entry(new_device.primary_config_entry)
-        new_integration = entry.domain if entry else None
+    new_integrations = set()
+    if new_device and new_device.config_entry_id:
+        entry = hass.config_entries.async_get_entry(new_device.config_entry_id)
+        if entry:
+            new_integrations.add(entry.domain)
 
     files = []
     for kind, name in CONFIG_FILES.items():
@@ -186,7 +203,7 @@ async def async_plan(
         text = await hass.async_add_executor_job(_read, path)
         if text is not None:
             files.append(
-                _plan_file(kind, path, text, id_map, entity_domains, new_integration)
+                _plan_file(kind, path, text, id_map, entity_domains, new_integrations)
             )
     return Plan(old_device_id, new_device_id, pairs, id_map, files)
 
@@ -250,6 +267,40 @@ async def _async_write_files(
             await hass.services.async_call(kind, "reload", blocking=True)
 
 
+class _ExpectedRenameFilter(logging.Filter):
+    """Drop the recorder's rename messages for the entity pairs of one swap."""
+
+    def __init__(self, renames: set[tuple[str, str]]) -> None:
+        super().__init__()
+        self.renames = renames
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not (isinstance(record.args, tuple) and record.args in self.renames)
+
+
+def _hide_expected_recorder_messages(
+    hass: HomeAssistant, renames: set[tuple[str, str]]
+) -> Callable[[], None]:
+    log_filter = _ExpectedRenameFilter(renames)
+    loggers = [logging.getLogger(name) for name in _RECORDER_LOGGERS]
+    for logger in loggers:
+        logger.addFilter(log_filter)
+
+    @callback
+    def _remove(_now: Any) -> None:
+        for logger in loggers:
+            logger.removeFilter(log_filter)
+
+    cancel_timer = async_call_later(hass, _FILTER_SECONDS, _remove)
+
+    @callback
+    def _remove_now() -> None:
+        cancel_timer()
+        _remove(None)
+
+    return _remove_now
+
+
 def _free_entity_id(hass: HomeAssistant, entity_id: str) -> None:
     """Drop a leftover state so the ID can be taken over right away."""
     if hass.states.get(entity_id) is not None:
@@ -263,13 +314,57 @@ class SwapManager:
         self.hass = hass
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self.backups: dict[str, dict[str, Any]] = {}
+        # Meter sum corrections waiting for the recorder to compile their period.
+        self.pending: list[dict[str, Any]] = []
+        self._unsubs: list[Any] = []
 
     async def async_load(self) -> None:
-        data = await self._store.async_load()
-        self.backups = (data or {}).get("backups", {})
+        data = await self._store.async_load() or {}
+        self.backups = data.get("backups", {})
+        self.pending = data.get("pending", [])
+        for item in self.pending:
+            self._schedule(item, energy.next_check(item))
+
+    @callback
+    def async_unload(self) -> None:
+        for unsub in self._unsubs:
+            unsub()
+        self._unsubs.clear()
 
     async def _async_save(self) -> None:
-        await self._store.async_save({"backups": self.backups})
+        await self._store.async_save({"backups": self.backups, "pending": self.pending})
+
+    async def _async_add_corrections(
+        self, handovers: list[tuple[str, Any, Any]]
+    ) -> None:
+        """Queue sum corrections for meters handing over (statistic, before, after)."""
+        if "recorder" not in self.hass.config.components:
+            return
+        now = dt_util.utcnow()
+        for statistic_id, before, after in handovers:
+            item = energy.pending_adjustment(statistic_id, before, after, now)
+            if item:
+                self.pending.append(item)
+                self._schedule(item, energy.next_check(item))
+        await self._async_save()
+
+    @callback
+    def _schedule(self, item: dict[str, Any], when: Any) -> None:
+        async def _run(_now: Any) -> None:
+            self._unsubs.remove(unsub)
+            if item not in self.pending:
+                return
+            result = await energy.async_try_apply(self.hass, item)
+            if result is False:
+                self._schedule(item, dt_util.utcnow() + energy.RETRY_DELAY)
+                return
+            self.pending.remove(item)
+            await self._async_save()
+
+        unsub = async_track_point_in_utc_time(
+            self.hass, _run, max(when, dt_util.utcnow())
+        )
+        self._unsubs.append(unsub)
 
     async def async_apply(self, plan: Plan) -> str:
         """Apply a plan and return the ID of its backup."""
@@ -311,7 +406,16 @@ class SwapManager:
         }
         await self._async_save()
 
+        # The new meters continue the old meters' sums from here on.
+        handovers = [
+            (old_id, hass.states.get(old_id), hass.states.get(new_id))
+            for old_id, new_id in plan.pairs
+        ]
+
         # Entities: customizations over, old entry out, new entity takes the old ID.
+        self._unsubs.append(
+            _hide_expected_recorder_messages(hass, {(n, o) for o, n in plan.pairs})
+        )
         for old_id, new_id in plan.pairs:
             old_entry = ent_reg.async_get(old_id)
             _copy_customizations(ent_reg, old_entry, new_id)
@@ -319,6 +423,7 @@ class SwapManager:
             _free_entity_id(hass, old_id)
             _free_entity_id(hass, new_id)
             ent_reg.async_update_entity(new_id, new_entity_id=old_id)
+            _LOGGER.info("%s now continues %s", new_id, old_id)
 
         # Devices: area and labels to the new one, the old one is switched off.
         dev_reg.async_update_device(
@@ -335,6 +440,7 @@ class SwapManager:
             hass,
             {f.kind: (f.path, f.new_text) for f in plan.files if f.new_text},
         )
+        await self._async_add_corrections(handovers)
         return backup_id
 
     async def async_undo(self, backup_id: str) -> list[str]:
@@ -346,6 +452,21 @@ class SwapManager:
             raise SwapError("Backup not found")
         ent_reg = er.async_get(hass)
         dev_reg = dr.async_get(hass)
+        last_states = {
+            p["old"]["entity_id"]: hass.states.get(p["old"]["entity_id"])
+            for p in backup["pairs"]
+        }
+
+        # Undoing moves IDs back, which the recorder again reports as collisions.
+        self._unsubs.append(
+            _hide_expected_recorder_messages(
+                hass,
+                {
+                    (p["old"]["entity_id"], p["new"]["entity_id"])
+                    for p in backup["pairs"]
+                },
+            )
+        )
 
         # New entities back to their own IDs and settings.
         for pair in backup["pairs"]:
@@ -395,6 +516,10 @@ class SwapManager:
                 _free_entity_id(hass, current)
                 ent_reg.async_update_entity(current, new_entity_id=old["entity_id"])
             _restore_customizations(ent_reg, old["entity_id"], old)
+        # The old entities must exist again before automations referring to them load.
+        for entry_id in reload_entries:
+            if hass.config_entries.async_get_entry(entry_id):
+                await hass.config_entries.async_reload(entry_id)
 
         # Files untouched since the swap get their old text back. Files edited since
         # then keep those edits and only have the device references turned back.
@@ -405,15 +530,17 @@ class SwapManager:
             if current is None or current == f["written"]:
                 texts[kind] = (f["path"], f["text"])
                 continue
-            reverted = _plan_file(kind, f["path"], current, reverse_map, {}, None)
+            reverted = _plan_file(kind, f["path"], current, reverse_map, {}, set())
             if reverted.blocked:
                 notes.append(f"{f['path']} {reverted.blocked}")
             elif reverted.new_text:
                 texts[kind] = (f["path"], reverted.new_text)
         await _async_write_files(hass, texts)
-        for entry_id in reload_entries:
-            if hass.config_entries.async_get_entry(entry_id):
-                await hass.config_entries.async_reload(entry_id)
+
+        # The old meters take their sums back over from the new ones.
+        await self._async_add_corrections(
+            [(eid, last, hass.states.get(eid)) for eid, last in last_states.items()]
+        )
 
         del self.backups[backup_id]
         await self._async_save()

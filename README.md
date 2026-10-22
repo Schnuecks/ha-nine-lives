@@ -17,12 +17,23 @@ device is swapped for a new one.
 4. Apply: the new entities take over the old entity IDs, and every reference is updated.
    A backup is written first, and one click undoes the swap.
 
+Meters (energy, gas, water) keep a continuous sum: the step from the old meter's
+reading to the new one's is not counted as consumption.
+
 Places MeshMove cannot change safely (YAML packages, `!include` files, device triggers
 without a counterpart on the new device) are listed instead of being changed silently.
 
 ## Installation
 
-Not available yet. MeshMove will be installable through [HACS](https://hacs.xyz/).
+Not released yet. Once it is: in [HACS](https://hacs.xyz/) add this repository as a
+custom repository (type *Integration*), install MeshMove, restart Home Assistant and add
+the integration under **Settings → Devices & services**.
+
+## Usage
+
+Open **MeshMove** in the sidebar (admins only), pick the old and the new device, check
+the proposed entity pairs and the preview, then swap. Recent swaps are listed below and
+can be undone. Once everything works, remove the old device from its integration.
 
 ## License
 

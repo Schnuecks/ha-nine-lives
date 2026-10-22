@@ -42,17 +42,18 @@ def rewrite(
     config: Any,
     id_map: dict[str, str],
     entity_domains: dict[str, str] | None = None,
-    new_integration: str | None = None,
+    new_integrations: set[str] | None = None,
 ) -> RewriteResult:
     """Return a copy of config with every ID in id_map replaced.
 
     id_map maps the old device ID and the old entity registry IDs to the new ones.
     entity_domains maps new entity registry IDs to their domain; device automations
     bound to an entity of the same domain are expected to work on the new device,
-    and so are those of new_integration (the integration of the new device); all
+    and so are those of new_integrations (the integrations of the new device); all
     others are reported for review.
     """
     entity_domains = entity_domains or {}
+    new_integrations = new_integrations or set()
     changes: list[Change] = []
     reviews: list[Review] = []
 
@@ -69,7 +70,10 @@ def rewrite(
             if node.keys() >= _DEVICE_AUTOMATION_KEYS and node["device_id"] in id_map:
                 domain = node["domain"]
                 entity = result.get("entity_id")
-                if domain != new_integration and entity_domains.get(entity) != domain:
+                if (
+                    domain not in new_integrations
+                    and entity_domains.get(entity) != domain
+                ):
                     if "condition" in node:
                         kind = "condition"
                     elif "trigger" in node or "platform" in node:

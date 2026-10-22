@@ -12,6 +12,12 @@ from custom_components.meshmove.const import DOMAIN
 
 
 @pytest.fixture
+def expected_lingering_timers() -> bool:
+    """A swap hides the recorder's expected messages for a while, using a timer."""
+    return True
+
+
+@pytest.fixture
 async def devices(hass: HomeAssistant, tmp_path: Path):
     hass.config.config_dir = str(tmp_path)
     entry = MockConfigEntry(domain=DOMAIN)

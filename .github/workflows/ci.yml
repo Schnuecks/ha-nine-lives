@@ -3,6 +3,8 @@ name: CI
 # Lint and tests on every push and pull request, plus the two validators a custom
 # integration needs: hassfest (Home Assistant's manifest and translation checks) and the
 # HACS action. Actions are pinned to exact commits; Dependabot updates them.
+# All jobs run on the self-hosted runner on the root server (label "hessis", its own
+# Docker daemon via dind), so the private repository uses no Actions minutes.
 
 on:
   push:
@@ -13,11 +15,16 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels its older run instead of queueing on the one runner.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     # Only docs changed (Markdown, docs/, licence, issue templates)? Then the other jobs
     # skip their steps; GitHub counts skipped required checks as passed. Tags always run everything.
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, hessis]
     outputs:
       code: ${{ steps.diff.outputs.code }}
     steps:
@@ -36,28 +43,32 @@ jobs:
 
   test:
     needs: changes
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, hessis]
+    # The pip cache lives in a volume of the runner's Docker daemon. The container runs as
+    # root, so nothing may be left in the workspace (bytecode, pytest and ruff caches):
+    # the next checkout as the runner user could not remove it.
+    container:
+      image: python:3.14
+      volumes:
+        - meshmove-ci-pip:/root/.cache/pip
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_ROOT_USER_ACTION: ignore
     steps:
       - if: needs.changes.outputs.code == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - if: needs.changes.outputs.code == 'true'
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.14"
-          cache: pip
-          cache-dependency-path: requirements-dev.txt
-      - if: needs.changes.outputs.code == 'true'
         run: pip install -r requirements-dev.txt
       - if: needs.changes.outputs.code == 'true'
-        run: ruff check .
+        run: ruff check --no-cache .
       - if: needs.changes.outputs.code == 'true'
-        run: ruff format --check .
+        run: ruff format --check --no-cache .
       - if: needs.changes.outputs.code == 'true'
-        run: pytest -q
+        run: pytest -q -p no:cacheprovider
 
   hassfest:
     needs: changes
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, hessis]
     steps:
       - if: needs.changes.outputs.code == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -66,7 +77,7 @@ jobs:
 
   hacs:
     needs: changes
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, hessis]
     steps:
       # The HACS action can only validate public repositories.
       - if: needs.changes.outputs.code == 'true' && !github.event.repository.private
