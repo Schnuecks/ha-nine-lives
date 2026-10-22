@@ -23,9 +23,15 @@ const STRINGS = {
     deviceArea: "The new device gets the area and labels of the old one.",
     deviceDisable: "The old device is disabled.",
     refs: "Device references rewritten",
-    noRefs: "No automation, script or scene refers to the old device.",
+    noRefs: "No automation, script, scene or dashboard refers to the old device.",
     reviews: "Please check afterwards",
     blocked: "Not changed",
+    manual: "Please adjust by hand",
+    reason_yaml_file: "refers to the old device",
+    reason_yaml_dashboard: "YAML dashboard, refers to the old device",
+    reason_yaml_tags: "uses YAML tags such as !secret or !include",
+    tidy: "New ID",
+    tidyHint: "the old ID is not used anywhere",
     apply: "Swap devices",
     confirm: "Swap the devices now? A backup is kept and the swap can be undone.",
     done: "Done. The new device now uses the old entity IDs.",
@@ -60,9 +66,15 @@ const STRINGS = {
     deviceArea: "Das neue Gerät bekommt Bereich und Labels des alten.",
     deviceDisable: "Das alte Gerät wird deaktiviert.",
     refs: "Umgeschriebene Geräte-Verweise",
-    noRefs: "Keine Automation, kein Skript und keine Szene verweist auf das alte Gerät.",
+    noRefs: "Keine Automation, kein Skript, keine Szene und kein Dashboard verweist auf das alte Gerät.",
     reviews: "Bitte danach prüfen",
     blocked: "Nicht geändert",
+    manual: "Bitte von Hand anpassen",
+    reason_yaml_file: "verweist auf das alte Gerät",
+    reason_yaml_dashboard: "YAML-Dashboard, verweist auf das alte Gerät",
+    reason_yaml_tags: "nutzt YAML-Tags wie !secret oder !include",
+    tidy: "Neue ID",
+    tidyHint: "die alte ID wird nirgends verwendet",
     apply: "Geräte tauschen",
     confirm: "Geräte jetzt tauschen? Es wird eine Sicherung angelegt, der Tausch lässt sich rückgängig machen.",
     done: "Fertig. Das neue Gerät nutzt jetzt die alten Entity-IDs.",
@@ -157,8 +169,14 @@ class NineLivesPanel extends HTMLElement {
     return { old_device_id: this._state.oldId, new_device_id: this._state.newId };
   }
 
+  _reason(code) {
+    return this._t[`reason_${code}`] || code;
+  }
+
   _chosenPairs() {
-    return this._state.pairs.filter((p) => p.new);
+    return this._state.pairs
+      .filter((p) => p.new)
+      .map((p) => ({ old: p.old, new: p.new, new_entity_id: p.useTidy ? p.tidy : null }));
   }
 
   async _propose() {
@@ -166,7 +184,13 @@ class NineLivesPanel extends HTMLElement {
     const byOld = Object.fromEntries(result.pairs.map((p) => [p.old, p.new]));
     const olds = [...result.pairs.map((p) => p.old), ...result.unmatched_old];
     this._state.newEntities = [...result.pairs.map((p) => p.new), ...result.unmatched_new];
-    this._state.pairs = olds.map((old) => ({ old, new: byOld[old] || "" }));
+    const tidy = result.suggested_ids || {};
+    this._state.pairs = olds.map((old) => ({
+      old,
+      new: byOld[old] || "",
+      tidy: tidy[old] || null,
+      useTidy: Boolean(tidy[old]),
+    }));
     this._go("pairs");
   }
 
@@ -243,8 +267,13 @@ class NineLivesPanel extends HTMLElement {
                 `<option value="${esc(n)}" ${n === p.new ? "selected" : ""}>${esc(this._entityLabel(n))}</option>`
             )
             .join("");
+        const tidy =
+          p.tidy && p.new
+            ? `<tr class="tidy"><td colspan="3"><label><input type="checkbox" data-tidy="${i}" ${p.useTidy ? "checked" : ""}>
+                ${esc(t.tidy)}: <code>${esc(p.tidy)}</code> <span class="muted">(${esc(t.tidyHint)})</span></label></td></tr>`
+            : "";
         return `<tr><td>${esc(this._entityLabel(p.old))}</td><td class="arrow">←</td>
-          <td><select data-pair="${i}">${options}</select></td></tr>`;
+          <td><select data-pair="${i}">${options}</select></td></tr>${tidy}`;
       })
       .join("");
     const free = s.newEntities.filter((n) => !used.has(n));
@@ -263,11 +292,12 @@ class NineLivesPanel extends HTMLElement {
     const t = this._t;
     const plan = this._state.plan;
     const renames = plan.pairs
-      .map((p) => `<li><code>${esc(p.new)}</code> → <code>${esc(p.old)}</code></li>`)
+      .map((p) => `<li><code>${esc(p.new)}</code> → <code>${esc(p.final)}</code></li>`)
       .join("");
     const changes = plan.files.flatMap((f) => f.changes);
     const reviews = plan.files.flatMap((f) => f.reviews);
     const blocked = plan.files.filter((f) => f.blocked);
+    const reports = plan.reports || [];
     const list = (items, fn) => `<ul>${items.map(fn).join("")}</ul>`;
     return `
       <h2>${esc(t.previewTitle)}</h2>
@@ -277,7 +307,8 @@ class NineLivesPanel extends HTMLElement {
       <h3>${esc(t.refs)}</h3>
       ${changes.length ? list(changes, (c) => `<li>${esc(c.path)}</li>`) : `<p class="muted">${esc(t.noRefs)}</p>`}
       ${reviews.length ? `<h3 class="warn">${esc(t.reviews)}</h3>` + list(reviews, (r) => `<li>${esc(r.path)}: ${esc(r.reason)}</li>`) : ""}
-      ${blocked.length ? `<h3 class="warn">${esc(t.blocked)}</h3>` + list(blocked, (f) => `<li>${esc(f.kind)}: ${esc(f.blocked)}</li>`) : ""}
+      ${blocked.length ? `<h3 class="warn">${esc(t.blocked)}</h3>` + list(blocked, (f) => `<li>${esc(f.kind)}: ${esc(this._reason(f.blocked))}</li>`) : ""}
+      ${reports.length ? `<h3 class="warn">${esc(t.manual)}</h3>` + list(reports, (r) => `<li>${esc(r.where)}: ${esc(this._reason(r.reason))}</li>`) : ""}
       <div class="actions">
         <button id="back">${esc(t.back)}</button>
         <button id="apply" class="primary">${esc(t.apply)}</button>
@@ -363,6 +394,11 @@ class NineLivesPanel extends HTMLElement {
         this._render();
       })
     );
+    this.shadowRoot.querySelectorAll("input[data-tidy]").forEach((el) =>
+      el.addEventListener("change", (e) => {
+        this._state.pairs[Number(e.target.dataset.tidy)].useTidy = e.target.checked;
+      })
+    );
     this.shadowRoot.querySelectorAll("button[data-undo]").forEach((el) =>
       el.addEventListener("click", (e) => {
         this._state.message = null;
@@ -392,6 +428,9 @@ const STYLE = `
   th { text-align: left; font-weight: 500; padding: 4px; }
   td { padding: 4px; vertical-align: middle; word-break: break-word; }
   td select { margin: 0; }
+  tr.tidy td { padding-top: 0; font-size: 13px; }
+  tr.tidy label { margin: 0 0 8px; font-weight: 400; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  tr.tidy input { width: auto; display: inline; margin: 0; }
   .arrow { width: 24px; text-align: center; color: var(--secondary-text-color); }
   .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   button { font: inherit; padding: 8px 16px; border-radius: 6px; cursor: pointer;

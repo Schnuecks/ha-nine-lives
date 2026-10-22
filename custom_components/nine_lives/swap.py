@@ -24,7 +24,7 @@ from homeassistant.config import (
     SCENE_CONFIG_PATH,
     SCRIPT_CONFIG_PATH,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback, valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -37,7 +37,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.file import write_utf8_file_atomic
 from homeassistant.util.yaml import dump, parse_yaml
 
-from . import energy
+from . import energy, scan
 from .const import DOMAIN
 from .references import Change, Review, rewrite
 
@@ -88,12 +88,19 @@ class Plan:
     pairs: list[tuple[str, str]]
     id_map: dict[str, str]
     files: list[FilePlan]
+    dashboards: list[scan.DashboardPlan] = field(default_factory=list)
+    reports: list[scan.Report] = field(default_factory=list)
+    # Tidier IDs the user chose: old entity ID -> ID the new entity ends up with.
+    new_ids: dict[str, str] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "old_device_id": self.old_device_id,
             "new_device_id": self.new_device_id,
-            "pairs": [{"old": o, "new": n} for o, n in self.pairs],
+            "pairs": [
+                {"old": o, "new": n, "final": self.new_ids.get(o, o)}
+                for o, n in self.pairs
+            ],
             "files": [
                 {
                     "kind": f.kind,
@@ -102,7 +109,17 @@ class Plan:
                     "blocked": f.blocked,
                 }
                 for f in self.files
+            ]
+            + [
+                {
+                    "kind": "dashboard",
+                    "changes": [asdict(c) for c in d.changes],
+                    "reviews": [asdict(r) for r in d.reviews],
+                    "blocked": None,
+                }
+                for d in self.dashboards
             ],
+            "reports": [asdict(r) for r in self.reports],
         }
 
 
@@ -127,7 +144,8 @@ def _plan_file(
     if not any(old_id in text for old_id in id_map):
         return plan
     if _YAML_TAG.search(text):
-        plan.blocked = "uses YAML tags such as !secret or !include, edit it by hand"
+        # A code the panel translates: the file uses !secret, !include and the like.
+        plan.blocked = "yaml_tags"
         return plan
 
     data = parse_yaml(text)
@@ -161,8 +179,13 @@ async def async_plan(
     old_device_id: str,
     new_device_id: str,
     pairs: list[tuple[str, str]],
+    new_ids: dict[str, str] | None = None,
 ) -> Plan:
-    """Check the request and work out every change, without changing anything."""
+    """Check the request and work out every change, without changing anything.
+
+    new_ids optionally gives a tidier ID for some old entity IDs; it is only allowed
+    when nothing refers to the old ID.
+    """
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
     if old_device_id == new_device_id:
@@ -205,7 +228,71 @@ async def async_plan(
             files.append(
                 _plan_file(kind, path, text, id_map, entity_domains, new_integrations)
             )
-    return Plan(old_device_id, new_device_id, pairs, id_map, files)
+    dashboards, reports = await scan.async_plan_dashboards(
+        hass, id_map, entity_domains, new_integrations
+    )
+    reports += await scan.async_yaml_reports(hass, id_map)
+    new_ids = await _async_check_new_ids(hass, olds, news, new_ids or {})
+    return Plan(
+        old_device_id,
+        new_device_id,
+        pairs,
+        id_map,
+        files,
+        dashboards,
+        reports,
+        new_ids,
+    )
+
+
+async def _async_check_new_ids(
+    hass: HomeAssistant, olds: list[str], news: list[str], new_ids: dict[str, str]
+) -> dict[str, str]:
+    """Only unused old IDs may change, and only to a free ID of the same type."""
+    new_ids = {old: new for old, new in new_ids.items() if new and new != old}
+    if not new_ids:
+        return {}
+    ent_reg = er.async_get(hass)
+    corpus = await scan.async_reference_corpus(hass)
+    targets = list(new_ids.values())
+    for old, target in new_ids.items():
+        if old not in olds:
+            raise SwapError(f"{old} is not swapped")
+        if not valid_entity_id(target) or target.split(".")[0] != old.split(".")[0]:
+            raise SwapError(f"{target} is not a valid ID for {old}")
+        if targets.count(target) > 1 or target in olds:
+            raise SwapError(f"{target} is used twice")
+        taken = ent_reg.async_get(target) or hass.states.get(target)
+        if taken and target not in news:
+            raise SwapError(f"{target} is already taken")
+        if scan.is_referenced(old, corpus):
+            raise SwapError(f"{old} is in use, its ID cannot change")
+    return new_ids
+
+
+async def async_suggest_ids(
+    hass: HomeAssistant, entity_ids: list[str]
+) -> dict[str, str]:
+    """Tidier IDs for old entities whose ID no longer matches their name.
+
+    Only offered when nothing refers to the old ID and the tidier one is free.
+    """
+    ent_reg = er.async_get(hass)
+    candidates = {}
+    for entity_id in entity_ids:
+        state = hass.states.get(entity_id)
+        name = state.attributes.get("friendly_name") if state else None
+        suggestion = scan.suggested_entity_id(entity_id, name)
+        if suggestion and not ent_reg.async_get(suggestion):
+            candidates[entity_id] = suggestion
+    if not candidates:
+        return {}
+    corpus = await scan.async_reference_corpus(hass)
+    return {
+        old: new
+        for old, new in candidates.items()
+        if not scan.is_referenced(old, corpus)
+    }
 
 
 def _entity_snapshot(entry: er.RegistryEntry) -> dict[str, Any]:
@@ -265,6 +352,15 @@ async def _async_write_files(
         await hass.async_add_executor_job(write_utf8_file_atomic, path, text)
         if hass.services.has_service(kind, "reload"):
             await hass.services.async_call(kind, "reload", blocking=True)
+
+
+async def _async_current_dashboard(
+    hass: HomeAssistant, url_path: str | None
+) -> dict[str, Any] | None:
+    for dashboard, config in await scan.async_dashboards(hass):
+        if dashboard.url_path == url_path:
+            return config
+    return None
 
 
 class _ExpectedRenameFilter(logging.Filter):
@@ -398,6 +494,12 @@ class SwapManager:
                 for old, new in plan.pairs
             ],
             "id_map": plan.id_map,
+            "new_ids": plan.new_ids,
+            "dashboards": [
+                {"url_path": d.url_path, "text": d.original, "written": d.new_config}
+                for d in plan.dashboards
+                if d.new_config is not None
+            ],
             "files": {
                 f.kind: {"path": f.path, "text": f.original, "written": f.new_text}
                 for f in plan.files
@@ -416,7 +518,9 @@ class SwapManager:
                 before = await energy.async_last_known_state(
                     hass, old_id, capabilities.get("state_class")
                 )
-            handovers.append((old_id, before, hass.states.get(new_id)))
+            handovers.append(
+                (plan.new_ids.get(old_id, old_id), before, hass.states.get(new_id))
+            )
 
         # Entities: customizations over, old entry out, new entity takes the old ID.
         self._unsubs.append(
@@ -430,6 +534,10 @@ class SwapManager:
             _free_entity_id(hass, new_id)
             ent_reg.async_update_entity(new_id, new_entity_id=old_id)
             _LOGGER.info("%s now continues %s", new_id, old_id)
+            # A tidier ID, chosen by the user: history and statistics move along.
+            if target := plan.new_ids.get(old_id):
+                _free_entity_id(hass, old_id)
+                ent_reg.async_update_entity(old_id, new_entity_id=target)
 
         # Devices: area and labels to the new one, the old one is switched off.
         dev_reg.async_update_device(
@@ -446,6 +554,11 @@ class SwapManager:
             hass,
             {f.kind: (f.path, f.new_text) for f in plan.files if f.new_text},
         )
+        for dashboard in plan.dashboards:
+            if dashboard.new_config is not None:
+                await scan.async_save_dashboard(
+                    hass, dashboard.url_path, dashboard.new_config
+                )
         await self._async_add_corrections(handovers)
         return backup_id
 
@@ -458,10 +571,26 @@ class SwapManager:
             raise SwapError("Backup not found")
         ent_reg = er.async_get(hass)
         dev_reg = dr.async_get(hass)
-        last_states = {
-            p["old"]["entity_id"]: hass.states.get(p["old"]["entity_id"])
-            for p in backup["pairs"]
-        }
+
+        # Where the new entities are now: the old ID, or a tidier one chosen at the
+        # swap. A tidier ID goes back to the old ID first, so the old history (which
+        # moved along with it) ends up under the old ID again.
+        last_states = {}
+        for pair in backup["pairs"]:
+            old, new = pair["old"], pair["new"]
+            current = ent_reg.async_get_entity_id(
+                new["entity_id"].split(".", 1)[0], new["platform"], new["unique_id"]
+            )
+            last_states[old["entity_id"]] = (
+                hass.states.get(current) if current else None
+            )
+            if (
+                current
+                and current not in (old["entity_id"], new["entity_id"])
+                and not ent_reg.async_get(old["entity_id"])
+            ):
+                _free_entity_id(hass, current)
+                ent_reg.async_update_entity(current, new_entity_id=old["entity_id"])
 
         # Undoing moves IDs back, which the recorder again reports as collisions.
         self._unsubs.append(
@@ -538,10 +667,23 @@ class SwapManager:
                 continue
             reverted = _plan_file(kind, f["path"], current, reverse_map, {}, set())
             if reverted.blocked:
-                notes.append(f"{f['path']} {reverted.blocked}")
+                notes.append(
+                    f"{f['path']} uses YAML tags, turn its device references back"
+                    " by hand"
+                )
             elif reverted.new_text:
                 texts[kind] = (f["path"], reverted.new_text)
         await _async_write_files(hass, texts)
+
+        for dashboard in backup.get("dashboards", []):
+            config = await _async_current_dashboard(hass, dashboard["url_path"])
+            if config is None:
+                continue
+            if config == dashboard["written"]:
+                restored = dashboard["text"]
+            else:
+                restored = rewrite(config, reverse_map).config
+            await scan.async_save_dashboard(hass, dashboard["url_path"], restored)
 
         # The old meters take their sums back over from the new ones.
         await self._async_add_corrections(

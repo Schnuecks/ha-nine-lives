@@ -5,12 +5,19 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.nine_lives.swap import SwapError, SwapManager, async_plan
+from custom_components.nine_lives.swap import (
+    SwapError,
+    SwapManager,
+    async_plan,
+    async_suggest_ids,
+)
 
 OLD_TEMP = "sensor.bathroom_temperature"
 OLD_BATTERY = "sensor.bathroom_battery"
@@ -226,7 +233,7 @@ async def test_files_with_yaml_tags_are_not_touched(hass: HomeAssistant, setup) 
     )
     await SwapManager(hass).async_apply(plan)
 
-    assert "YAML tags" in plan.files[0].blocked
+    assert plan.files[0].blocked == "yaml_tags"
     assert automations.read_text(encoding="utf-8") == original
 
 
@@ -257,3 +264,93 @@ async def test_expected_recorder_messages_are_hidden(
 
     assert "Cannot migrate sensor.ikea_temperature" not in caplog.text
     assert "sensor.other" in caplog.text
+
+
+async def test_dashboards_are_rewritten_and_restored(
+    hass: HomeAssistant, setup
+) -> None:
+    await async_setup_component(hass, "lovelace", {})
+    dashboard = hass.data[LOVELACE_DATA].dashboards[None]
+    original = {
+        "views": [
+            {"cards": [{"type": "tile", "entity": OLD_TEMP}]},
+            {
+                "cards": [
+                    {"type": "custom:device-card", "device_id": setup["old_dev"].id}
+                ]
+            },
+        ]
+    }
+    await dashboard.async_save(original)
+    manager = SwapManager(hass)
+
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"]
+    )
+    assert [c.path for c in plan.dashboards[0].changes] == [
+        "dashboard 'Overview': views[1].cards[0].device_id"
+    ]
+    backup_id = await manager.async_apply(plan)
+
+    saved = await dashboard.async_load(False)
+    assert saved["views"][1]["cards"][0]["device_id"] == setup["new_dev"].id
+    assert saved["views"][0]["cards"][0]["entity"] == OLD_TEMP
+
+    with patch.object(hass.config_entries, "async_reload", AsyncMock()):
+        await manager.async_undo(backup_id)
+    assert await dashboard.async_load(False) == original
+
+
+async def test_yaml_files_are_reported_not_changed(
+    hass: HomeAssistant, setup, tmp_path: Path
+) -> None:
+    package = tmp_path / "packages" / "bathroom.yaml"
+    package.parent.mkdir()
+    text = f"homeassistant:\n  customize: {{}}\n# device {setup['old_dev'].id}\n"
+    package.write_text(text, encoding="utf-8")
+
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"]
+    )
+    await SwapManager(hass).async_apply(plan)
+
+    assert [(r.where, r.reason) for r in plan.reports] == [
+        ("packages/bathroom.yaml", "yaml_file")
+    ]
+    assert package.read_text(encoding="utf-8") == text
+
+
+async def test_unused_old_ids_can_get_a_tidier_id(hass: HomeAssistant, setup) -> None:
+    ent_reg = er.async_get(hass)
+    hass.states.async_set(OLD_BATTERY, "90", {"friendly_name": "Bad Batterie"})
+    # The temperature is used in the automation's template, so its ID must stay.
+    hass.states.async_set(OLD_TEMP, "21", {"friendly_name": "Bad Temperatur"})
+
+    suggestions = await async_suggest_ids(hass, [OLD_TEMP, OLD_BATTERY])
+    assert suggestions == {OLD_BATTERY: "sensor.bad_batterie"}
+
+    with pytest.raises(SwapError, match="in use"):
+        await async_plan(
+            hass,
+            setup["old_dev"].id,
+            setup["new_dev"].id,
+            setup["pairs"],
+            {OLD_TEMP: "sensor.bad_temperatur"},
+        )
+
+    manager = SwapManager(hass)
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"], suggestions
+    )
+    backup_id = await manager.async_apply(plan)
+
+    assert ent_reg.async_get("sensor.bad_batterie").unique_id == "ikea-battery"
+    assert ent_reg.async_get(OLD_BATTERY) is None
+    assert ent_reg.async_get(OLD_TEMP).unique_id == "ikea-temp"
+
+    with patch.object(hass.config_entries, "async_reload", AsyncMock()):
+        await manager.async_undo(backup_id)
+    assert ent_reg.async_get("sensor.ikea_battery").unique_id == "ikea-battery"
+    assert ent_reg.async_get("sensor.bad_batterie") is None
+    restored = ent_reg.async_get_or_create("sensor", "zha", "aqara-battery")
+    assert restored.entity_id == OLD_BATTERY
