@@ -1,5 +1,6 @@
 """Tests for applying and undoing a swap."""
 
+import logging
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -13,6 +14,12 @@ from custom_components.meshmove.swap import SwapError, SwapManager, async_plan
 
 OLD_TEMP = "sensor.bathroom_temperature"
 OLD_BATTERY = "sensor.bathroom_battery"
+
+
+@pytest.fixture
+def expected_lingering_timers() -> bool:
+    """A swap hides the recorder's expected messages for a while, using a timer."""
+    return True
 
 
 @pytest.fixture
@@ -234,3 +241,19 @@ async def test_backups_survive_a_restart(hass: HomeAssistant, setup) -> None:
     await reloaded.async_load()
 
     assert list(reloaded.backups) == [backup_id]
+
+
+async def test_expected_recorder_messages_are_hidden(
+    hass: HomeAssistant, setup, caplog
+) -> None:
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"]
+    )
+    await SwapManager(hass).async_apply(plan)
+    logger = logging.getLogger("homeassistant.components.recorder.entity_registry")
+
+    logger.warning("Cannot migrate %s to %s", "sensor.ikea_temperature", OLD_TEMP)
+    logger.warning("Cannot migrate %s to %s", "sensor.other", OLD_TEMP)
+
+    assert "Cannot migrate sensor.ikea_temperature" not in caplog.text
+    assert "sensor.other" in caplog.text

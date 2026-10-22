@@ -61,7 +61,7 @@ def test_integration_specific_trigger_needs_review() -> None:
         ],
     }
 
-    result = rewrite(config, ID_MAP, new_integration="matter")
+    result = rewrite(config, ID_MAP, new_integrations={"matter"})
 
     assert [(r.path, r.reason) for r in result.reviews] == [
         ("triggers[0]", "device trigger 'remote_button_short_press' of zha"),
@@ -78,7 +78,7 @@ def test_same_integration_needs_no_review() -> None:
         }
     ]
 
-    result = rewrite(config, ID_MAP, new_integration="zha")
+    result = rewrite(config, ID_MAP, new_integrations={"zha"})
 
     assert result.reviews == []
     assert result.config[0]["device_id"] == "newdevice"
