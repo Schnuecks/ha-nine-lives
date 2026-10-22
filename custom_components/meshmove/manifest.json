@@ -1,8 +1,13 @@
 {
   "domain": "meshmove",
   "name": "MeshMove",
-  "codeowners": ["@Schnuecks"],
+  "codeowners": [
+    "@Schnuecks"
+  ],
   "config_flow": true,
+  "dependencies": [
+    "websocket_api"
+  ],
   "documentation": "https://github.com/Schnuecks/meshmove",
   "integration_type": "service",
   "iot_class": "calculated",
