@@ -1,6 +1,6 @@
 """How the recorder treats entity ID changes.
 
-These tests pin down Home Assistant behaviour that MeshMove's swap strategy relies on.
+These tests pin down Home Assistant behaviour that Nine Lives' swap strategy relies on.
 If a Home Assistant update changes it, they fail before users lose history.
 """
 

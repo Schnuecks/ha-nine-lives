@@ -5,7 +5,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.meshmove.const import DOMAIN
+from custom_components.nine_lives.const import DOMAIN
 
 
 async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
@@ -16,7 +16,7 @@ async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "MeshMove"
+    assert result["title"] == "Nine Lives"
 
 
 async def test_only_one_instance(hass: HomeAssistant) -> None:

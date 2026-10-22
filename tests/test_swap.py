@@ -10,7 +10,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.meshmove.swap import SwapError, SwapManager, async_plan
+from custom_components.nine_lives.swap import SwapError, SwapManager, async_plan
 
 OLD_TEMP = "sensor.bathroom_temperature"
 OLD_BATTERY = "sensor.bathroom_battery"

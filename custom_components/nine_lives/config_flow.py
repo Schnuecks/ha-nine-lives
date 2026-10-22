@@ -1,4 +1,4 @@
-"""Config flow for MeshMove: one instance, nothing to configure."""
+"""Config flow for Nine Lives: one instance, nothing to configure."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from .const import DOMAIN
 
 
-class MeshMoveConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle the setup of MeshMove."""
+class NineLivesConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle the setup of Nine Lives."""
 
     VERSION = 1
 
@@ -19,5 +19,5 @@ class MeshMoveConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Confirm the setup."""
         if user_input is not None:
-            return self.async_create_entry(title="MeshMove", data={})
+            return self.async_create_entry(title="Nine Lives", data={})
         return self.async_show_form(step_id="user")

@@ -1,10 +1,10 @@
-"""Tests for setting up and unloading MeshMove."""
+"""Tests for setting up and unloading Nine Lives."""
 
 from homeassistant.components.frontend import DATA_PANELS
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.meshmove.const import DOMAIN
+from custom_components.nine_lives.const import DOMAIN
 
 
 async def test_panel_is_registered_and_removed(
@@ -14,7 +14,7 @@ async def test_panel_is_registered_and_removed(
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
 
-    panel = hass.data[DATA_PANELS]["meshmove"]
+    panel = hass.data[DATA_PANELS]["nine-lives"]
     assert panel.require_admin
     module_url = panel.config["_panel_custom"]["module_url"]
     client = await hass_client()
@@ -23,5 +23,5 @@ async def test_panel_is_registered_and_removed(
     assert "customElements.define" in await response.text()
 
     assert await hass.config_entries.async_unload(entry.entry_id)
-    assert "meshmove" not in hass.data[DATA_PANELS]
+    assert "nine-lives" not in hass.data[DATA_PANELS]
     assert DOMAIN not in hass.data

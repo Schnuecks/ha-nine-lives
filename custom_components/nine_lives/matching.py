@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class EntityInfo:
-    """What MeshMove needs to know about one entity."""
+    """What Nine Lives needs to know about one entity."""
 
     entity_id: str
     registry_id: str

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from homeassistant.core import State
 
-from custom_components.meshmove.energy import pending_adjustment, transition_step
+from custom_components.nine_lives.energy import pending_adjustment, transition_step
 
 WHEN = datetime(2026, 10, 22, 15, 47, 21, tzinfo=UTC)
 

@@ -8,7 +8,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.meshmove.const import DOMAIN
+from custom_components.nine_lives.const import DOMAIN
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ async def test_propose_preview_apply_undo(
     client = await hass_ws_client(hass)
     ids = {"old_device_id": devices["old"], "new_device_id": devices["new"]}
 
-    await client.send_json_auto_id({"type": "meshmove/propose", **ids})
+    await client.send_json_auto_id({"type": "nine_lives/propose", **ids})
     proposal = (await client.receive_json())["result"]
     assert proposal["pairs"] == [
         {"old": "sensor.old_temperature", "new": "sensor.new_temperature"},
@@ -61,21 +61,21 @@ async def test_propose_preview_apply_undo(
     ]
 
     request = {**ids, "pairs": proposal["pairs"]}
-    await client.send_json_auto_id({"type": "meshmove/preview", **request})
+    await client.send_json_auto_id({"type": "nine_lives/preview", **request})
     preview = await client.receive_json()
     assert preview["success"]
     assert preview["result"]["files"] == []
 
-    await client.send_json_auto_id({"type": "meshmove/apply", **request})
+    await client.send_json_auto_id({"type": "nine_lives/apply", **request})
     backup_id = (await client.receive_json())["result"]["backup_id"]
     ent_reg = er.async_get(hass)
     assert ent_reg.async_get("sensor.old_temperature").unique_id == "new-temperature"
 
-    await client.send_json_auto_id({"type": "meshmove/backups"})
+    await client.send_json_auto_id({"type": "nine_lives/backups"})
     backups = (await client.receive_json())["result"]
     assert [b["backup_id"] for b in backups] == [backup_id]
 
-    await client.send_json_auto_id({"type": "meshmove/undo", "backup_id": backup_id})
+    await client.send_json_auto_id({"type": "nine_lives/undo", "backup_id": backup_id})
     assert (await client.receive_json())["result"] == {"notes": []}
     assert ent_reg.async_get("sensor.new_temperature").unique_id == "new-temperature"
 
@@ -85,7 +85,7 @@ async def test_errors_are_reported(hass: HomeAssistant, hass_ws_client, devices)
 
     await client.send_json_auto_id(
         {
-            "type": "meshmove/preview",
+            "type": "nine_lives/preview",
             "old_device_id": devices["old"],
             "new_device_id": devices["old"],
             "pairs": [],
@@ -101,6 +101,6 @@ async def test_commands_need_an_admin(
 ) -> None:
     client = await hass_ws_client(hass, hass_read_only_access_token)
 
-    await client.send_json_auto_id({"type": "meshmove/backups"})
+    await client.send_json_auto_id({"type": "nine_lives/backups"})
     response = await client.receive_json()
     assert response["error"]["code"] == "unauthorized"

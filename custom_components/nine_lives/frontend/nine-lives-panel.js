@@ -1,5 +1,5 @@
-// MeshMove sidebar panel. Plain web component without build step or dependencies;
-// it talks to the integration through the meshmove/* WebSocket commands.
+// Nine Lives sidebar panel. Plain web component without build step or dependencies;
+// it talks to the integration through the nine_lives/* WebSocket commands.
 
 const STRINGS = {
   en: {
@@ -81,7 +81,7 @@ const STRINGS = {
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-class MeshMovePanel extends HTMLElement {
+class NineLivesPanel extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -149,7 +149,7 @@ class MeshMovePanel extends HTMLElement {
   }
 
   async _loadBackups() {
-    this._backups = await this._call({ type: "meshmove/backups" });
+    this._backups = await this._call({ type: "nine_lives/backups" });
     this._render();
   }
 
@@ -162,7 +162,7 @@ class MeshMovePanel extends HTMLElement {
   }
 
   async _propose() {
-    const result = await this._call({ type: "meshmove/propose", ...this._ids() });
+    const result = await this._call({ type: "nine_lives/propose", ...this._ids() });
     const byOld = Object.fromEntries(result.pairs.map((p) => [p.old, p.new]));
     const olds = [...result.pairs.map((p) => p.old), ...result.unmatched_old];
     this._state.newEntities = [...result.pairs.map((p) => p.new), ...result.unmatched_new];
@@ -172,7 +172,7 @@ class MeshMovePanel extends HTMLElement {
 
   async _preview() {
     this._state.plan = await this._call({
-      type: "meshmove/preview",
+      type: "nine_lives/preview",
       ...this._ids(),
       pairs: this._chosenPairs(),
     });
@@ -181,14 +181,14 @@ class MeshMovePanel extends HTMLElement {
 
   async _apply() {
     if (!confirm(this._t.confirm)) return;
-    await this._call({ type: "meshmove/apply", ...this._ids(), pairs: this._chosenPairs() });
+    await this._call({ type: "nine_lives/apply", ...this._ids(), pairs: this._chosenPairs() });
     this._go("done");
     this._loadBackups();
   }
 
   async _undo(backupId) {
     if (!confirm(this._t.undoConfirm)) return;
-    const result = await this._call({ type: "meshmove/undo", backup_id: backupId });
+    const result = await this._call({ type: "nine_lives/undo", backup_id: backupId });
     this._state.message = [this._t.undone, ...result.notes].join(" ");
     this._loadBackups();
   }
@@ -319,7 +319,7 @@ class MeshMovePanel extends HTMLElement {
       <style>${STYLE}</style>
       <header>
         ${this._narrow ? `<button id="menu" class="icon" title="Menu">☰</button>` : ""}
-        <h1>MeshMove</h1>
+        <h1>Nine Lives</h1>
       </header>
       <main>
         ${s.error ? `<p class="error">${esc(t.error)}: ${esc(s.error)}</p>` : ""}
@@ -411,4 +411,4 @@ const STYLE = `
   @media (max-width: 600px) { main { padding: 8px; } }
 `;
 
-customElements.define("meshmove-panel", MeshMovePanel);
+customElements.define("nine-lives-panel", NineLivesPanel);

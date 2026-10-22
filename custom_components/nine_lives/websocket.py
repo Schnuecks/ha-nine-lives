@@ -1,4 +1,4 @@
-"""WebSocket commands used by the MeshMove panel. All of them need an admin."""
+"""WebSocket commands used by the Nine Lives panel. All of them need an admin."""
 
 from __future__ import annotations
 
@@ -56,7 +56,9 @@ def _pairs(msg: dict[str, Any]) -> list[tuple[str, str]]:
     return [(p["old"], p["new"]) for p in msg["pairs"]]
 
 
-@websocket_api.websocket_command({vol.Required("type"): "meshmove/propose", **_DEVICES})
+@websocket_api.websocket_command(
+    {vol.Required("type"): "nine_lives/propose", **_DEVICES}
+)
 @websocket_api.require_admin
 @callback
 def ws_propose(
@@ -80,7 +82,7 @@ def ws_propose(
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "meshmove/preview", **_DEVICES, **_PAIRS}
+    {vol.Required("type"): "nine_lives/preview", **_DEVICES, **_PAIRS}
 )
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -99,7 +101,7 @@ async def ws_preview(
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "meshmove/apply", **_DEVICES, **_PAIRS}
+    {vol.Required("type"): "nine_lives/apply", **_DEVICES, **_PAIRS}
 )
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -118,7 +120,7 @@ async def ws_apply(
     connection.send_result(msg["id"], {"backup_id": backup_id})
 
 
-@websocket_api.websocket_command({vol.Required("type"): "meshmove/backups"})
+@websocket_api.websocket_command({vol.Required("type"): "nine_lives/backups"})
 @websocket_api.require_admin
 @callback
 def ws_backups(
@@ -144,7 +146,7 @@ def ws_backups(
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "meshmove/undo", vol.Required("backup_id"): str}
+    {vol.Required("type"): "nine_lives/undo", vol.Required("backup_id"): str}
 )
 @websocket_api.require_admin
 @websocket_api.async_response
