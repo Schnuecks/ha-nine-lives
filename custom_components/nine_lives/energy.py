@@ -16,6 +16,8 @@ from typing import Any
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import (
     STATISTIC_UNIT_TO_UNIT_CONVERTER,
+    get_last_short_term_statistics,
+    get_metadata,
     statistics_during_period,
 )
 from homeassistant.components.sensor import SensorStateClass
@@ -52,11 +54,42 @@ def transition_step(
     return new - previous
 
 
-def _float(state: State | None) -> float | None:
+def state_value(state: State | None) -> float | None:
     try:
         return float(state.state) if state else None
     except ValueError:
         return None
+
+
+async def async_last_known_state(
+    hass: HomeAssistant, statistic_id: str, state_class: str | None
+) -> State | None:
+    """The meter reading the recorder last compiled, for a meter that is unavailable.
+
+    That reading is also what the recorder continues from, so it is the right base
+    for the correction when the old device is broken or already unplugged.
+    """
+    if state_class not in _SUM_CLASSES or "recorder" not in hass.config.components:
+        return None
+
+    def _get() -> tuple[list[Any], dict[str, Any]]:
+        rows = get_last_short_term_statistics(
+            hass, 1, statistic_id, False, {"state", "last_reset"}
+        )
+        return rows.get(statistic_id, []), get_metadata(
+            hass, statistic_ids={statistic_id}
+        )
+
+    rows, metadata = await get_instance(hass).async_add_executor_job(_get)
+    if not rows or rows[0].get("state") is None or statistic_id not in metadata:
+        return None
+    attributes = {
+        "state_class": state_class,
+        "unit_of_measurement": metadata[statistic_id][1]["unit_of_measurement"],
+    }
+    if last_reset := rows[0].get("last_reset"):
+        attributes["last_reset"] = dt_util.utc_from_timestamp(last_reset).isoformat()
+    return State(statistic_id, str(rows[0]["state"]), attributes)
 
 
 def pending_adjustment(
@@ -72,7 +105,7 @@ def pending_adjustment(
     state_class = before.attributes.get("state_class")
     if state_class not in _SUM_CLASSES:
         return None
-    previous, new = _float(before), _float(after)
+    previous, new = state_value(before), state_value(after)
     if previous is None or new is None:
         return None
 

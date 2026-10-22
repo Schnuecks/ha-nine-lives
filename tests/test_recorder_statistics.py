@@ -92,10 +92,18 @@ async def test_new_meter_continues_sum_of_removed_meter(
     assert await _sums(hass, p0) == [10.0, 15.0, 17.0]
 
 
+@pytest.mark.parametrize("old_meter_unavailable", [False, True])
 async def test_swap_corrects_the_jump_of_a_used_meter(
-    recorder_mock: Recorder, hass: HomeAssistant, freezer: FrozenDateTimeFactory
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    old_meter_unavailable: bool,
 ) -> None:
-    """A used plug at 50 kWh replaces a meter at 115 kWh: the sum must not jump."""
+    """A used plug at 50 kWh replaces a meter at 115 kWh: the sum must not jump.
+
+    That also holds when the old meter is already unplugged at the swap: then the
+    reading the recorder compiled last is the base.
+    """
     await async_setup_component(hass, "sensor", {})
     dev_reg = dr.async_get(hass)
     reg = er.async_get(hass)
@@ -112,6 +120,7 @@ async def test_swap_corrects_the_jump_of_a_used_meter(
         "old-plug",
         device_id=devices["zha"],
         suggested_object_id="washer_energy",
+        capabilities={"state_class": "total_increasing"},
     )
     new = reg.async_get_or_create(
         "sensor",
@@ -137,6 +146,8 @@ async def test_swap_corrects_the_jump_of_a_used_meter(
     await _compile(hass, p0 + period)
 
     freezer.move_to(p0 + 2 * period + timedelta(minutes=1))
+    if old_meter_unavailable:
+        hass.states.async_set(OLD, "unavailable", {"friendly_name": "Washer"})
     manager = SwapManager(hass)
     plan = await async_plan(hass, devices["zha"], devices["matter"], [(OLD, new)])
     await manager.async_apply(plan)

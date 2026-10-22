@@ -406,11 +406,17 @@ class SwapManager:
         }
         await self._async_save()
 
-        # The new meters continue the old meters' sums from here on.
-        handovers = [
-            (old_id, hass.states.get(old_id), hass.states.get(new_id))
-            for old_id, new_id in plan.pairs
-        ]
+        # The new meters continue the old meters' sums from here on. An old meter
+        # that is unavailable hands over the reading the recorder compiled last.
+        handovers = []
+        for old_id, new_id in plan.pairs:
+            before = hass.states.get(old_id)
+            if energy.state_value(before) is None:
+                capabilities = ent_reg.async_get(old_id).capabilities or {}
+                before = await energy.async_last_known_state(
+                    hass, old_id, capabilities.get("state_class")
+                )
+            handovers.append((old_id, before, hass.states.get(new_id)))
 
         # Entities: customizations over, old entry out, new entity takes the old ID.
         self._unsubs.append(
