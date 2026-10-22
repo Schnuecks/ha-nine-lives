@@ -1,0 +1,55 @@
+name: Bug report
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please fill in as much as you can;
+        German is fine too. Replace names you do not want to share.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+      placeholder: |
+        After swapping my temperature sensor, the automation "Bathroom too warm" no longer triggers.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Nine Lives version
+      description: Shown under Settings → Devices & services → Nine Lives.
+    validations:
+      required: true
+  - type: input
+    id: ha
+    attributes:
+      label: Home Assistant version
+      placeholder: e.g. 2026.10.2
+    validations:
+      required: true
+  - type: input
+    id: devices
+    attributes:
+      label: Old and new device
+      description: Which integrations do they belong to?
+      placeholder: e.g. Aqara sensor on ZHA → IKEA sensor on Matter
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: |
+        Turn on debug logging for Nine Lives, repeat the swap or undo and copy the log lines:
+        ```yaml
+        logger:
+          logs:
+            custom_components.nine_lives: debug
+        ```
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots of the preview, the automation or dashboard in question, etc.
