@@ -1,6 +1,9 @@
 {
   "domain": "meshmove",
   "name": "MeshMove",
+  "after_dependencies": [
+    "recorder"
+  ],
   "codeowners": [
     "@Schnuecks"
   ],
