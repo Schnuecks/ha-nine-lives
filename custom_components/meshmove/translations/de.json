@@ -1,0 +1,12 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "MeshMove fügt der Seitenleiste ein Panel hinzu, in dem du ein Gerät durch ein anderes ersetzen kannst."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "MeshMove ist bereits eingerichtet."
+    }
+  }
+}
