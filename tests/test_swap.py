@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.components import persistent_notification
 from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -354,3 +355,26 @@ async def test_unused_old_ids_can_get_a_tidier_id(hass: HomeAssistant, setup) ->
     assert ent_reg.async_get("sensor.bad_batterie") is None
     restored = ent_reg.async_get_or_create("sensor", "zha", "aqara-battery")
     assert restored.entity_id == OLD_BATTERY
+
+
+async def test_swap_notifies_and_undo_dismisses(hass: HomeAssistant, setup) -> None:
+    await async_setup_component(hass, "persistent_notification", {})
+    hass.config.language = "de"
+    manager = SwapManager(hass)
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"]
+    )
+
+    backup_id = await manager.async_apply(plan)
+
+    notification = _notifications(hass)[f"nine_lives_{backup_id}"]
+    assert notification["title"] == "Nine Lives: Aqara ersetzt"
+    assert "**IKEA** führt **Aqara** fort: 2 Entitäten" in notification["message"]
+
+    with patch.object(hass.config_entries, "async_reload", AsyncMock()):
+        await manager.async_undo(backup_id)
+    assert f"nine_lives_{backup_id}" not in _notifications(hass)
+
+
+def _notifications(hass: HomeAssistant) -> dict:
+    return persistent_notification._async_get_or_create_notifications(hass)

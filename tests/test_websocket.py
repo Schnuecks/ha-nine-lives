@@ -71,6 +71,9 @@ async def test_propose_preview_apply_undo(
     ent_reg = er.async_get(hass)
     assert ent_reg.async_get("sensor.old_temperature").unique_id == "new-temperature"
 
+    await client.send_json_auto_id({"type": "nine_lives/pending"})
+    assert (await client.receive_json())["result"] == []
+
     await client.send_json_auto_id({"type": "nine_lives/backups"})
     backups = (await client.receive_json())["result"]
     assert [b["backup_id"] for b in backups] == [backup_id]
