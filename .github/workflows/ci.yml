@@ -77,6 +77,3 @@ jobs:
         uses: hacs/action@d556e736723344f83838d08488c983a15381059a  # 22.5.0
         with:
           category: integration
-          # The icon ships with the integration (brand/), which Home Assistant reads directly;
-          # this check only looks for it in the home-assistant/brands repository.
-          ignore: brands
