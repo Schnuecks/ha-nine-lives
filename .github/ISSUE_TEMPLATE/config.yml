@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/Schnuecks/ha-nine-lives#readme
+    about: Installation, usage and what Nine Lives changes are described in the README.
+  - name: Security problem
+    url: https://github.com/Schnuecks/ha-nine-lives/blob/main/SECURITY.md
+    about: Please report vulnerabilities privately, not as a public issue. How to do that is described here.
