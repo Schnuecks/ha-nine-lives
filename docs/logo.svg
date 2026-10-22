@@ -1,13 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Nine Lives: a cat head with a "9" badge for its lives -->
-  <path fill="#41BDF5" d="M76 40 L196 128 Q256 112 316 128 L436 40 Q452 34 454 52 L452 250 Q470 300 456 350 Q420 470 256 474 Q92 470 56 350 Q42 300 60 250 L58 52 Q60 34 76 40 Z"/>
-  <path fill="#0B6E9C" opacity=".35" d="M100 86 L176 140 Q140 160 112 196 Z M412 86 L336 140 Q372 160 400 196 Z"/>
-  <ellipse cx="186" cy="290" rx="34" ry="44" fill="#fff"/>
-  <ellipse cx="326" cy="290" rx="34" ry="44" fill="#fff"/>
-  <ellipse cx="192" cy="298" rx="15" ry="27" fill="#12304A"/>
-  <ellipse cx="320" cy="298" rx="15" ry="27" fill="#12304A"/>
-  <path fill="#12304A" d="M236 362 L276 362 L256 386 Z"/>
-  <path d="M256 386 Q256 410 228 414 M256 386 Q256 410 284 414" fill="none" stroke="#12304A" stroke-width="9" stroke-linecap="round"/>
- <circle cx="420" cy="420" r="80" fill="#FFB300" stroke="#fff" stroke-width="12"/>
-  <text x="420" y="452" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="104" fill="#12304A">9</text>
+  <!-- Nine Lives: a sitting cat with a small 9 on its collar tag -->
+  <g transform="translate(30 -10)">
+    <g fill="#41BDF5">
+      <path d="M150 182 L140 82 L198 124 Q224 116 250 124 L308 82 L298 182 Q306 230 266 254 L182 254 Q142 230 150 182 Z"/>
+      <path d="M190 240 L258 240 Q286 270 312 330 Q340 400 316 452 Q306 470 286 470 L162 470 Q142 470 132 452 Q108 400 136 330 Q162 270 190 240 Z"/>
+      <path d="M300 456 C360 474 404 452 398 404 C394 374 366 368 352 384" fill="none" stroke="#41BDF5" stroke-width="30" stroke-linecap="round"/>
+    </g>
+    <path d="M186 190 q12 -11 24 0 M238 190 q12 -11 24 0" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+    <path d="M216 212 l8 7 l8 -7 z" fill="#fff"/>
+    <path d="M176 254 Q224 272 272 254" fill="none" stroke="#1D3B6E" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="224" cy="284" r="22" fill="#FFB300" stroke="#1D3B6E" stroke-width="5"/>
+    <text x="224" y="294" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="28" fill="#1D3B6E">9</text>
+  </g>
 </svg>
