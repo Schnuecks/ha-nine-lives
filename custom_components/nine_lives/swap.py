@@ -37,7 +37,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.file import write_utf8_file_atomic
 from homeassistant.util.yaml import dump, parse_yaml
 
-from . import energy, scan
+from . import energy, notice, scan
 from .const import DOMAIN
 from .references import Change, Review, rewrite
 
@@ -560,6 +560,14 @@ class SwapManager:
                     hass, dashboard.url_path, dashboard.new_config
                 )
         await self._async_add_corrections(handovers)
+        notice.async_swapped(
+            hass,
+            backup_id,
+            old_device.name_by_user or old_device.name or old_device.id,
+            new_device.name_by_user or new_device.name or new_device.id,
+            len(plan.pairs),
+            [r.where for r in plan.reports] + [f.path for f in plan.files if f.blocked],
+        )
         return backup_id
 
     async def async_undo(self, backup_id: str) -> list[str]:
@@ -690,6 +698,7 @@ class SwapManager:
             [(eid, last, hass.states.get(eid)) for eid, last in last_states.items()]
         )
 
+        notice.async_undone(hass, backup_id)
         del self.backups[backup_id]
         await self._async_save()
         return notes

@@ -4,6 +4,7 @@
   "after_dependencies": [
     "energy",
     "lovelace",
+    "persistent_notification",
     "recorder"
   ],
   "codeowners": [

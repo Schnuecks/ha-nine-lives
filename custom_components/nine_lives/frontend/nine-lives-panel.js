@@ -44,6 +44,8 @@ const STRINGS = {
     undone: "Swap undone.",
     error: "Error",
     entities: "Entities",
+    pending: "Meter corrections in progress",
+    pendingHint: "applied after the recorder's next 5-minute run, around",
   },
   de: {
     intro:
@@ -87,6 +89,8 @@ const STRINGS = {
     undone: "Tausch rückgängig gemacht.",
     error: "Fehler",
     entities: "Entitäten",
+    pending: "Zähler-Korrekturen in Arbeit",
+    pendingHint: "wird nach dem nächsten 5-Minuten-Lauf der Statistik angewandt, gegen",
   },
 };
 
@@ -99,6 +103,7 @@ class NineLivesPanel extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._state = { step: "select", oldId: "", newId: "", filter: "" };
     this._backups = [];
+    this._pending = [];
   }
 
   set hass(hass) {
@@ -161,8 +166,18 @@ class NineLivesPanel extends HTMLElement {
   }
 
   async _loadBackups() {
-    this._backups = await this._call({ type: "nine_lives/backups" });
+    [this._backups, this._pending] = await Promise.all([
+      this._call({ type: "nine_lives/backups" }),
+      this._call({ type: "nine_lives/pending" }),
+    ]);
     this._render();
+    // Corrections are applied a few minutes after a swap; check back until done.
+    clearTimeout(this._refresh);
+    if (this._pending.length) this._refresh = setTimeout(() => this._loadBackups(), 60000);
+  }
+
+  disconnectedCallback() {
+    clearTimeout(this._refresh);
   }
 
   _ids() {
@@ -323,11 +338,25 @@ class NineLivesPanel extends HTMLElement {
       <div class="actions"><button id="again" class="primary">${esc(t.again)}</button></div>`;
   }
 
+  _renderPending() {
+    const t = this._t;
+    if (!this._pending.length) return "";
+    const locale = this._hass.locale?.language || this._hass.language;
+    const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 3, signDisplay: "always" });
+    const time = (iso) => new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+    return `<h3>${esc(t.pending)}</h3><ul>${this._pending
+      .map(
+        (p) => `<li><code>${esc(p.statistic_id)}</code>: ${esc(number.format(p.adjustment))} ${esc(p.unit)}
+          <span class="muted">– ${esc(t.pendingHint)} ${esc(time(p.due))}</span></li>`
+      )
+      .join("")}</ul>`;
+  }
+
   _renderBackups() {
     const t = this._t;
-    if (!this._backups.length) return `<p class="muted">${esc(t.noHistory)}</p>`;
+    if (!this._backups.length) return this._renderPending() + `<p class="muted">${esc(t.noHistory)}</p>`;
     const locale = this._hass.locale?.language || this._hass.language;
-    return `<ul class="backups">${this._backups
+    return this._renderPending() + `<ul class="backups">${this._backups
       .map(
         (b) => `<li><span><strong>${esc(b.old_device)} → ${esc(b.new_device)}</strong><br>
           <span class="muted">${esc(new Date(b.created).toLocaleString(locale))} · ${esc(t.entities)}: ${b.entities.length}</span></span>

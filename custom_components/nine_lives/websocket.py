@@ -9,6 +9,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
+from . import energy
 from .const import DOMAIN
 from .matching import EntityInfo, propose_pairs
 from .swap import SwapError, SwapManager, async_plan, async_suggest_ids
@@ -32,7 +33,7 @@ _PAIRS = {
 
 @callback
 def async_register(hass: HomeAssistant) -> None:
-    for command in (ws_propose, ws_preview, ws_apply, ws_backups, ws_undo):
+    for command in (ws_propose, ws_preview, ws_apply, ws_backups, ws_undo, ws_pending):
         websocket_api.async_register_command(hass, command)
 
 
@@ -181,3 +182,19 @@ async def ws_undo(
         connection.send_error(msg["id"], "invalid", str(err))
         return
     connection.send_result(msg["id"], {"notes": notes})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "nine_lives/pending"})
+@websocket_api.require_admin
+@callback
+def ws_pending(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Meter sum corrections still waiting for the recorder, with when they are due."""
+    connection.send_result(
+        msg["id"],
+        [
+            {**item, "due": energy.next_check(item).isoformat()}
+            for item in _manager(hass).pending
+        ],
+    )
