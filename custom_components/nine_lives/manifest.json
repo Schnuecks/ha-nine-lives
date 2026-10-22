@@ -2,6 +2,8 @@
   "domain": "nine_lives",
   "name": "Nine Lives",
   "after_dependencies": [
+    "energy",
+    "lovelace",
     "recorder"
   ],
   "codeowners": [

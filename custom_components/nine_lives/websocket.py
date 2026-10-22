@@ -11,7 +11,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
 from .matching import EntityInfo, propose_pairs
-from .swap import SwapError, SwapManager, async_plan
+from .swap import SwapError, SwapManager, async_plan, async_suggest_ids
 
 _DEVICES = {
     vol.Required("old_device_id"): str,
@@ -19,7 +19,13 @@ _DEVICES = {
 }
 _PAIRS = {
     vol.Required("pairs"): [
-        vol.Schema({vol.Required("old"): str, vol.Required("new"): str})
+        vol.Schema(
+            {
+                vol.Required("old"): str,
+                vol.Required("new"): str,
+                vol.Optional("new_entity_id"): vol.Any(str, None),
+            }
+        )
     ],
 }
 
@@ -56,25 +62,40 @@ def _pairs(msg: dict[str, Any]) -> list[tuple[str, str]]:
     return [(p["old"], p["new"]) for p in msg["pairs"]]
 
 
+def _new_ids(msg: dict[str, Any]) -> dict[str, str]:
+    return {
+        p["old"]: p["new_entity_id"] for p in msg["pairs"] if p.get("new_entity_id")
+    }
+
+
 @websocket_api.websocket_command(
     {vol.Required("type"): "nine_lives/propose", **_DEVICES}
 )
 @websocket_api.require_admin
-@callback
-def ws_propose(
+@websocket_api.async_response
+async def ws_propose(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Suggest which entities of the new device replace which of the old one."""
+    """Suggest which entities of the new device replace which of the old one.
+
+    Old IDs that no longer match their name and are not used anywhere come with a
+    suggested tidier ID.
+    """
     result = propose_pairs(
         _entity_infos(hass, msg["old_device_id"]),
         _entity_infos(hass, msg["new_device_id"]),
     )
+    olds = [o.entity_id for o, _ in result.pairs] + [
+        e.entity_id for e in result.unmatched_old
+    ]
+    suggestions = await async_suggest_ids(hass, olds)
     connection.send_result(
         msg["id"],
         {
             "pairs": [
                 {"old": o.entity_id, "new": n.entity_id} for o, n in result.pairs
             ],
+            "suggested_ids": suggestions,
             "unmatched_old": [e.entity_id for e in result.unmatched_old],
             "unmatched_new": [e.entity_id for e in result.unmatched_new],
         },
@@ -92,7 +113,7 @@ async def ws_preview(
     """Show everything a swap would change, without changing anything."""
     try:
         plan = await async_plan(
-            hass, msg["old_device_id"], msg["new_device_id"], _pairs(msg)
+            hass, msg["old_device_id"], msg["new_device_id"], _pairs(msg), _new_ids(msg)
         )
     except SwapError as err:
         connection.send_error(msg["id"], "invalid", str(err))
@@ -111,7 +132,7 @@ async def ws_apply(
     """Swap the devices; the plan is worked out again to match the current state."""
     try:
         plan = await async_plan(
-            hass, msg["old_device_id"], msg["new_device_id"], _pairs(msg)
+            hass, msg["old_device_id"], msg["new_device_id"], _pairs(msg), _new_ids(msg)
         )
         backup_id = await _manager(hass).async_apply(plan)
     except SwapError as err:
