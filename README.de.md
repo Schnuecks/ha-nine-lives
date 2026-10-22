@@ -24,7 +24,17 @@ geändert.
 
 ## Installation
 
-Noch nicht verfügbar. MeshMove wird über [HACS](https://hacs.xyz/) installierbar sein.
+Noch nicht veröffentlicht. Danach: In [HACS](https://hacs.xyz/) dieses Repository als
+benutzerdefiniertes Repository (Typ *Integration*) hinzufügen, MeshMove installieren,
+Home Assistant neu starten und die Integration unter **Einstellungen → Geräte & Dienste**
+hinzufügen.
+
+## Benutzung
+
+**MeshMove** in der Seitenleiste öffnen (nur für Admins), altes und neues Gerät wählen,
+die vorgeschlagene Zuordnung und die Vorschau prüfen, dann tauschen. Die letzten Tausche
+stehen darunter und lassen sich rückgängig machen. Wenn alles läuft, das alte Gerät aus
+seiner Integration entfernen.
 
 ## Lizenz
 

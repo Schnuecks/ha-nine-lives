@@ -22,7 +22,15 @@ without a counterpart on the new device) are listed instead of being changed sil
 
 ## Installation
 
-Not available yet. MeshMove will be installable through [HACS](https://hacs.xyz/).
+Not released yet. Once it is: in [HACS](https://hacs.xyz/) add this repository as a
+custom repository (type *Integration*), install MeshMove, restart Home Assistant and add
+the integration under **Settings → Devices & services**.
+
+## Usage
+
+Open **MeshMove** in the sidebar (admins only), pick the old and the new device, check
+the proposed entity pairs and the preview, then swap. Recent swaps are listed below and
+can be undone. Once everything works, remove the old device from its integration.
 
 ## License
 
