@@ -89,9 +89,9 @@ Nine Lives**. The panel appears in the sidebar for admins.
   `!include`, because rewriting it would write those values into the file.
 - **Device triggers:** a trigger like "button pressed" of a Zigbee remote may not exist on
   the new device. Such triggers are rewritten but flagged for review.
-- **Undo** works as long as the old device still exists. After you removed it from its
-  integration, the new device can still get its own IDs back, but the old one does not
-  return.
+- **Undo** works as long as the old device still exists. Once you removed it from its
+  integration, the swap is final and no longer offers undo; it stays in the list of completed
+  swaps.
 - **What it does not touch:** Nine Lives does not talk to the devices or to any service
   outside Home Assistant.
 

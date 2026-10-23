@@ -91,8 +91,8 @@ Nine Lives** einrichten. Das Panel erscheint für Admins in der Seitenleiste.
 - **Geräte-Trigger:** Ein Trigger wie „Taste gedrückt“ einer Zigbee-Fernbedienung gibt es am
   neuen Gerät vielleicht nicht. Solche Trigger werden umgeschrieben, aber zur Prüfung markiert.
 - **Rückgängig** geht, solange das alte Gerät noch existiert. Hast du es aus seiner
-  Integration entfernt, bekommt das neue Gerät zwar seine eigenen IDs zurück, das alte kommt
-  aber nicht wieder.
+  Integration entfernt, ist der Tausch endgültig und bietet kein Rückgängig mehr an; er bleibt
+  in der Liste der durchgeführten Gerätetausche stehen.
 - **Was es nicht anfasst:** Nine Lives spricht weder mit den Geräten noch mit Diensten
   außerhalb von Home Assistant.
 

@@ -636,6 +636,22 @@ class SwapManager:
         )
         return backup_id
 
+    def old_device_removed(self, swap_id: str) -> bool:
+        """Whether the old device of a swap is gone from Home Assistant."""
+        backup = self.backups.get(swap_id)
+        if backup is None:
+            return False
+        return dr.async_get(self.hass).async_get(backup["old_device"]["id"]) is None
+
+    def can_undo(self, swap_id: str) -> bool:
+        """Undo needs the backup and the old device: without it, it could not return."""
+        entry = self.history.get(swap_id, {})
+        return (
+            swap_id in self.backups
+            and not entry.get("undone")
+            and not self.old_device_removed(swap_id)
+        )
+
     async def async_undo(self, backup_id: str) -> list[str]:
         """Put everything back as it was before the swap; return notes for the user."""
         hass = self.hass
@@ -643,6 +659,8 @@ class SwapManager:
         backup = self.backups.get(backup_id)
         if backup is None:
             raise SwapError("Backup not found")
+        if self.old_device_removed(backup_id):
+            raise SwapError("The old device was removed, the swap cannot be undone")
         ent_reg = er.async_get(hass)
         dev_reg = dr.async_get(hass)
 

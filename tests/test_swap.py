@@ -426,3 +426,22 @@ async def test_old_backups_get_a_history_entry(hass: HomeAssistant, setup) -> No
     entry = reloaded.history[swap_id]
     assert [p["final"] for p in entry["pairs"]] == [OLD_TEMP, OLD_BATTERY]
     assert entry["changes"] == []
+
+
+async def test_no_undo_once_the_old_device_is_removed(
+    hass: HomeAssistant, setup
+) -> None:
+    manager = SwapManager(hass)
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"]
+    )
+    swap_id = await manager.async_apply(plan)
+    assert manager.can_undo(swap_id)
+
+    # What happens when the user removes the old device from its integration.
+    dr.async_get(hass).async_remove_device(setup["old_dev"].id)
+
+    assert manager.old_device_removed(swap_id)
+    assert not manager.can_undo(swap_id)
+    with pytest.raises(SwapError, match="old device was removed"):
+        await manager.async_undo(swap_id)

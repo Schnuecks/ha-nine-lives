@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+- Undo is only offered while the old device still exists. After it was removed from its
+  integration, the swap is shown as final ("old device removed").
+
 ## 1.1.0
 
 ### Added

@@ -52,6 +52,7 @@ const STRINGS = {
     status_applied: "applied",
     status_failed: "not possible",
     undoneAt: "undone",
+    oldRemoved: "old device removed, cannot be undone",
     nothingElse: "No device references had to be rewritten.",
     undo: "Undo",
     undoConfirm: "Undo this swap?",
@@ -120,6 +121,7 @@ const STRINGS = {
     status_applied: "angewandt",
     status_failed: "nicht möglich",
     undoneAt: "rückgängig gemacht",
+    oldRemoved: "altes Gerät entfernt, nicht mehr rückgängig zu machen",
     nothingElse: "Es mussten keine Geräte-Verweise umgeschrieben werden.",
     undo: "Rückgängig",
     undoConfirm: "Diesen Tausch rückgängig machen?",
@@ -505,7 +507,7 @@ class NineLivesPanel extends HTMLElement {
           <summary><span><strong>${esc(b.old_device)} → ${esc(b.new_device)}</strong><br>
           <span class="muted">${esc(when(b.created))} · ${esc(t.entities)}: ${b.pairs.length}${
             b.undone ? ` · ${esc(t.undoneAt)} ${esc(when(b.undone))}` : ""
-          }</span></span>
+          }${b.old_device_removed && !b.undone ? ` · ${esc(t.oldRemoved)}` : ""}</span></span>
           ${b.can_undo ? `<button data-undo="${esc(b.backup_id)}">${esc(t.undo)}</button>` : ""}</summary>
           ${this._renderSwapDetails(b)}</details></li>`
       )

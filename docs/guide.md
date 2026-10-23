@@ -176,8 +176,9 @@ Swaps that can still be undone have an **Undo** button. Undo:
 - corrects the meter sums again, now for the step from the new meter back to the old one,
 - dismisses the notification.
 
-Undo needs the old device. If you already removed it from its integration, undo still gives
-the new device its own IDs back, but the old device does not return.
+Undo needs the old device. Once you removed it from its integration, the old device could
+not come back, so the swap is final: the entry says "old device removed" and no longer offers
+undo.
 
 ## Typical cases
 
