@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+- Telling old and new apart in the device lists: when each device was added ("new, today
+  18:46"), whether it is unavailable and which integration it belongs to. The list for the
+  new device shows the most recent first, and a hint offers to swap the two if the old one
+  was added after the new one.
+- An **Identify** button for devices that support it, to make them blink or beep.
+- The current value of every entity in the pairing step.
+
+### Changed
+- Services such as Sun or Backup no longer appear in the device lists.
+
 ## 1.0.0
 
 First release.
