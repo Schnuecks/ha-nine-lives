@@ -160,7 +160,12 @@ language, German or English.
 
 ## Undo
 
-Under **Recent swaps** every swap has an **Undo** button. Undo:
+Every swap is listed under **Completed swaps**, also after it was undone. Click an entry to
+see what it did: which entity IDs were taken over (and tidier IDs), which references were
+rewritten, what was flagged or left for manual editing, and the meter corrections with their
+status. Undone swaps show when they were undone.
+
+Swaps that can still be undone have an **Undo** button. Undo:
 
 - gives the new entities their own IDs and settings back,
 - re-enables the old device and restores its entities. Home Assistant brings them back with

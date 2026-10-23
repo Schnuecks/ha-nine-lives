@@ -378,3 +378,51 @@ async def test_swap_notifies_and_undo_dismisses(hass: HomeAssistant, setup) -> N
 
 def _notifications(hass: HomeAssistant) -> dict:
     return persistent_notification._async_get_or_create_notifications(hass)
+
+
+async def test_history_keeps_what_a_swap_did(hass: HomeAssistant, setup) -> None:
+    manager = SwapManager(hass)
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"]
+    )
+    swap_id = await manager.async_apply(plan)
+
+    entry = manager.history[swap_id]
+    assert (entry["old_device"], entry["new_device"]) == ("Aqara", "IKEA")
+    assert entry["pairs"][0] == {
+        "old": OLD_TEMP,
+        "new": "sensor.ikea_temperature",
+        "final": OLD_TEMP,
+    }
+    assert "automation 'Bathroom too warm': triggers[0].device_id" in entry["changes"]
+    assert [r["reason"] for r in entry["reviews"]] == [
+        "device trigger 'device_offline' of zha"
+    ]
+
+    with patch.object(hass.config_entries, "async_reload", AsyncMock()):
+        await manager.async_undo(swap_id)
+
+    # The backup is gone, the history stays with the time of the undo.
+    assert swap_id not in manager.backups
+    assert manager.history[swap_id]["undone"] is not None
+    reloaded = SwapManager(hass)
+    await reloaded.async_load()
+    assert reloaded.history[swap_id]["undone"] == manager.history[swap_id]["undone"]
+
+
+async def test_old_backups_get_a_history_entry(hass: HomeAssistant, setup) -> None:
+    manager = SwapManager(hass)
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"]
+    )
+    swap_id = await manager.async_apply(plan)
+    # A swap from before the history existed: only the backup is stored.
+    manager.history.clear()
+    await manager._async_save()
+
+    reloaded = SwapManager(hass)
+    await reloaded.async_load()
+
+    entry = reloaded.history[swap_id]
+    assert [p["final"] for p in entry["pairs"]] == [OLD_TEMP, OLD_BATTERY]
+    assert entry["changes"] == []

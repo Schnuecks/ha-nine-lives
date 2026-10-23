@@ -13,9 +13,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   was added after the new one.
 - An **Identify** button for devices that support it, to make them blink or beep.
 - The current value of every entity in the pairing step.
+- Completed swaps stay listed, also after an undo, and a click shows what each one did:
+  entity IDs taken over, references rewritten, places flagged or left for manual editing,
+  and meter corrections with their status.
 
 ### Changed
 - Services such as Sun or Backup no longer appear in the device lists.
+- "Recent swaps" is now called "Completed swaps".
 
 ## 1.0.0
 

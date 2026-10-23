@@ -171,7 +171,14 @@ in der Systemsprache, Deutsch oder Englisch.
 
 ## Rückgängig machen
 
-Unter **Letzte Tausche** hat jeder Tausch einen Knopf **Rückgängig**. Rückgängig:
+Jeder Tausch steht unter **Durchgeführte Gerätetausche**, auch nachdem er rückgängig gemacht
+wurde. Ein Klick auf den Eintrag zeigt, was er bewirkt hat: welche Entity-IDs übernommen
+wurden (und neue IDs), welche Verweise umgeschrieben wurden, was zur Prüfung markiert oder zum
+Anpassen von Hand gemeldet wurde und die Zähler-Korrekturen mit ihrem Stand. Rückgängig
+gemachte Tausche zeigen, wann das war.
+
+Tausche, die sich noch rückgängig machen lassen, haben einen Knopf **Rückgängig**.
+Rückgängig:
 
 - gibt den neuen Entitäten ihre eigenen IDs und Einstellungen zurück,
 - schaltet das alte Gerät wieder ein und stellt seine Entitäten wieder her. Home Assistant
