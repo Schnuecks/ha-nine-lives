@@ -107,3 +107,29 @@ async def test_commands_need_an_admin(
     await client.send_json_auto_id({"type": "nine_lives/backups"})
     response = await client.receive_json()
     assert response["error"]["code"] == "unauthorized"
+
+
+async def test_devices_tell_old_and_new_apart(
+    hass: HomeAssistant, hass_ws_client, devices
+) -> None:
+    ent_reg = er.async_get(hass)
+    identify = ent_reg.async_get_or_create(
+        "button",
+        "new_integration",
+        "new-identify",
+        device_id=devices["new"],
+        original_device_class="identify",
+    )
+    hass.states.async_set("sensor.new_temperature", "21.5")
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id({"type": "nine_lives/devices"})
+    result = {d["id"]: d for d in (await client.receive_json())["result"]}
+
+    old, new = result[devices["old"]], result[devices["new"]]
+    assert old["created_at"] <= new["created_at"]
+    assert old["available"] is False
+    assert new["available"] is True
+    assert old["identify"] is None
+    assert new["identify"] == identify.entity_id
+    assert new["integration"] == "new_integration"

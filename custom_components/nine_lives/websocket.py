@@ -6,8 +6,11 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integration
 
 from . import energy
 from .const import DOMAIN
@@ -33,7 +36,15 @@ _PAIRS = {
 
 @callback
 def async_register(hass: HomeAssistant) -> None:
-    for command in (ws_propose, ws_preview, ws_apply, ws_backups, ws_undo, ws_pending):
+    for command in (
+        ws_devices,
+        ws_propose,
+        ws_preview,
+        ws_apply,
+        ws_backups,
+        ws_undo,
+        ws_pending,
+    ):
         websocket_api.async_register_command(hass, command)
 
 
@@ -198,3 +209,62 @@ def ws_pending(
             for item in _manager(hass).pending
         ],
     )
+
+
+def _integration_name(hass: HomeAssistant, entry_id: str | None) -> str | None:
+    entry = hass.config_entries.async_get_entry(entry_id) if entry_id else None
+    if entry is None:
+        return None
+    try:
+        return async_get_loaded_integration(hass, entry.domain).name
+    except IntegrationNotLoaded:
+        return entry.domain
+
+
+@websocket_api.websocket_command({vol.Required("type"): "nine_lives/devices"})
+@websocket_api.require_admin
+@callback
+def ws_devices(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Devices that can take part in a swap, with what helps to tell them apart.
+
+    created_at tells old from new, available shows an unplugged or broken device and
+    identify names a button that makes the device blink or beep, if it has one.
+    """
+    ent_reg = er.async_get(hass)
+    devices = []
+    for device in dr.async_get(hass).devices.values():
+        # Services such as Sun or Backup are not hardware that gets replaced.
+        if device.disabled_by or device.entry_type is dr.DeviceEntryType.SERVICE:
+            continue
+        entries = er.async_entries_for_device(ent_reg, device.id)
+        if not entries:
+            continue
+        states = [hass.states.get(e.entity_id) for e in entries]
+        identify = next(
+            (
+                e.entity_id
+                for e in entries
+                if e.domain == "button"
+                and (e.device_class or e.original_device_class) == "identify"
+                and not e.disabled_by
+            ),
+            None,
+        )
+        devices.append(
+            {
+                "id": device.id,
+                "name": device.name_by_user or device.name or device.id,
+                "manufacturer": device.manufacturer,
+                "model": device.model,
+                "area_id": device.area_id,
+                "integration": _integration_name(hass, device.config_entry_id),
+                "created_at": device.created_at.isoformat(),
+                "available": any(
+                    s is not None and s.state != STATE_UNAVAILABLE for s in states
+                ),
+                "identify": identify,
+            }
+        )
+    connection.send_result(msg["id"], devices)

@@ -30,8 +30,18 @@ Open **Nine Lives** in the sidebar. Only admins see it.
 
 ### 1. Pick the devices
 
-Choose the old and the new device. The list shows manufacturer, model and area, which helps
-when both have the same name. The filter field narrows the list down.
+Choose the old and the new device. To tell them apart even when both have the same name and
+model, each entry shows:
+
+- manufacturer, model, area and integration,
+- when the device was added: **new, today 18:46** for devices added within a week,
+  otherwise **since** the date. The list for the new device shows the most recent first,
+- **unavailable** if the device does not respond, for example because it is unplugged.
+
+If the device chosen as old was added after the one chosen as new, Nine Lives asks whether
+they are mixed up and offers to swap them. Devices with an identify function (many plugs and
+lights) get an **Identify** button: it makes the device blink or beep, so you can check in
+the room which one it is. The filter field narrows the list down.
 
 ### 2. Check the pairs
 
@@ -43,7 +53,8 @@ Nine Lives proposes which new entity replaces which old one:
   sensor from being paired with an illuminance sensor.
 - Among the remaining candidates, matching unit, state class and name decide.
 
-You can change every pair or choose **skip**. Skipped old entities stay with the old device.
+Below each entity you see its current value, for example `21.3 °C` or `4.2 W`, which helps
+to check that the right sensors are paired. You can change every pair or choose **skip**. Skipped old entities stay with the old device.
 New entities without a partner are listed below the table; they keep their own IDs.
 
 **New ID:** some old IDs no longer fit, for example after a device was renamed

@@ -31,8 +31,19 @@ kurzen Überblick und die Installation findest du in der [README](../README.de.m
 
 ### 1. Geräte wählen
 
-Altes und neues Gerät auswählen. Die Liste zeigt Hersteller, Modell und Bereich; das hilft,
-wenn beide gleich heißen. Mit dem Filterfeld lässt sich die Liste eingrenzen.
+Altes und neues Gerät auswählen. Damit man sie auch bei gleichem Namen und Modell
+auseinanderhält, zeigt jeder Eintrag:
+
+- Hersteller, Modell, Bereich und Integration,
+- wann das Gerät hinzugefügt wurde: **neu, heute 18:46** bei Geräten der letzten sieben Tage,
+  sonst **seit** dem Datum. In der Liste für das neue Gerät stehen die jüngsten oben,
+- **nicht erreichbar**, wenn das Gerät nicht antwortet, etwa weil es abgesteckt ist.
+
+Wurde das als alt gewählte Gerät nach dem als neu gewählten hinzugefügt, fragt Nine Lives,
+ob sie vertauscht sind, und bietet an, sie zu tauschen. Geräte mit Identifizieren-Funktion
+(viele Steckdosen und Lampen) bekommen einen Knopf **Identifizieren**: Das Gerät blinkt oder
+piept, und du siehst im Raum, welches es ist. Mit dem Filterfeld lässt sich die Liste
+eingrenzen.
 
 ### 2. Zuordnung prüfen
 
@@ -45,7 +56,9 @@ Nine Lives schlägt vor, welche neue Entität welche alte ersetzt:
   die Signalstärke nicht mit der Helligkeit gepaart.
 - Unter den übrigen Kandidaten entscheiden gleiche Einheit, Zustandsklasse und Name.
 
-Jedes Paar lässt sich ändern oder auf **überspringen** stellen. Übersprungene alte Entitäten
+Unter jeder Entität steht ihr aktueller Wert, zum Beispiel `21,3 °C` oder `4,2 W`; so siehst
+du, ob die richtigen Sensoren gepaart sind. Jedes Paar lässt sich ändern oder auf
+**überspringen** stellen. Übersprungene alte Entitäten
 bleiben beim alten Gerät. Neue Entitäten ohne Partner stehen unter der Tabelle; sie behalten
 ihre eigenen IDs.
 

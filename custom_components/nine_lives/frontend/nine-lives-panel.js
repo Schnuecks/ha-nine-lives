@@ -45,6 +45,15 @@ const STRINGS = {
     error: "Error",
     entities: "Entities",
     pending: "Meter corrections in progress",
+    isNew: "new",
+    since: "since",
+    today: "today",
+    yesterday: "yesterday",
+    unavailable: "unavailable",
+    swappedHint: "The device chosen as old was added after the new one. Mixed up?",
+    swapSides: "Swap old and new",
+    identify: "Identify",
+    identifyHint: "Makes the device blink or beep so you can find it.",
     pendingHint: "applied after the recorder's next 5-minute run, around",
   },
   de: {
@@ -90,6 +99,15 @@ const STRINGS = {
     error: "Fehler",
     entities: "Entitäten",
     pending: "Zähler-Korrekturen in Arbeit",
+    isNew: "neu",
+    since: "seit",
+    today: "heute",
+    yesterday: "gestern",
+    unavailable: "nicht erreichbar",
+    swappedHint: "Das als alt gewählte Gerät wurde nach dem neuen hinzugefügt. Vertauscht?",
+    swapSides: "Alt und neu tauschen",
+    identify: "Identifizieren",
+    identifyHint: "Lässt das Gerät blinken oder piepen, damit du es findest.",
     pendingHint: "wird nach dem nächsten 5-Minuten-Lauf der Statistik angewandt, gegen",
   },
 };
@@ -103,6 +121,7 @@ class NineLivesPanel extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._state = { step: "select", oldId: "", newId: "", filter: "" };
     this._backups = [];
+    this._deviceList = [];
     this._pending = [];
   }
 
@@ -111,6 +130,7 @@ class NineLivesPanel extends HTMLElement {
     this._hass = hass;
     if (first) {
       this._loadBackups();
+      this._loadDevices();
       this._render();
     }
   }
@@ -127,6 +147,8 @@ class NineLivesPanel extends HTMLElement {
   }
 
   _deviceName(id) {
+    const own = this._device?.(id);
+    if (own) return own.name;
     const d = this._hass.devices[id];
     if (!d) return id;
     return d.name_by_user || d.name || id;
@@ -138,21 +160,15 @@ class NineLivesPanel extends HTMLElement {
     return name ? `${name} (${entityId})` : entityId;
   }
 
-  _devices() {
-    const counts = {};
-    for (const e of Object.values(this._hass.entities)) {
-      if (e.device_id) counts[e.device_id] = (counts[e.device_id] || 0) + 1;
-    }
+  // Old device: alphabetical. New device: the most recently added first.
+  _devices(newestFirst) {
     const filter = this._state.filter.toLowerCase();
-    return Object.values(this._hass.devices)
-      .filter((d) => counts[d.id] && !d.disabled_by)
-      .map((d) => {
-        const area = d.area_id && this._hass.areas[d.area_id]?.name;
-        const extra = [d.manufacturer, d.model, area].filter(Boolean).join(", ");
-        return { id: d.id, label: this._deviceName(d.id) + (extra ? ` · ${extra}` : "") };
-      })
+    return this._deviceList
+      .map((d) => ({ ...d, label: this._deviceLabel(d) }))
       .filter((d) => !filter || d.label.toLowerCase().includes(filter))
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .sort((a, b) =>
+        newestFirst ? b.created_at.localeCompare(a.created_at) : a.label.localeCompare(b.label)
+      );
   }
 
   async _call(message) {
@@ -240,15 +256,78 @@ class NineLivesPanel extends HTMLElement {
 
   _reset() {
     this._state = { step: "select", oldId: "", newId: "", filter: "" };
+    this._loadDevices();
     this._render();
+  }
+
+  async _loadDevices() {
+    this._deviceList = await this._call({ type: "nine_lives/devices" });
+    this._render();
+  }
+
+  _device(id) {
+    return this._deviceList.find((d) => d.id === id);
+  }
+
+  _locale() {
+    return this._hass.locale?.language || this._hass.language;
+  }
+
+  // "new, today 18:46" for devices added within a week, "since 03/05/2025" otherwise.
+  _age(device) {
+    const t = this._t;
+    const created = new Date(device.created_at);
+    const days = (Date.now() - created) / 86400000;
+    const locale = this._locale();
+    if (days > 7) return `${t.since} ${created.toLocaleDateString(locale)}`;
+    const time = created.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    const day =
+      created.toDateString() === today
+        ? t.today
+        : created.toDateString() === yesterday
+          ? t.yesterday
+          : created.toLocaleDateString(locale);
+    return `${t.isNew}, ${day} ${time}`;
+  }
+
+  _deviceLabel(d) {
+    const area = d.area_id && this._hass.areas[d.area_id]?.name;
+    const parts = [
+      [d.manufacturer, d.model].filter(Boolean).join(" "),
+      area,
+      d.integration,
+      this._age(d),
+      d.available ? null : this._t.unavailable,
+    ].filter(Boolean);
+    return `${d.name} · ${parts.join(" · ")}`;
+  }
+
+  _stateText(entityId) {
+    const state = this._hass.states[entityId];
+    if (!state) return "";
+    if (this._hass.formatEntityState) return this._hass.formatEntityState(state);
+    const unit = state.attributes.unit_of_measurement;
+    return unit ? `${state.state} ${unit}` : state.state;
+  }
+
+  async _identify(entityId) {
+    await this._hass.callService("button", "press", { entity_id: entityId });
+  }
+
+  _identifyButton(deviceId, role) {
+    const d = deviceId && this._device(deviceId);
+    if (!d?.identify) return "";
+    const text = role ? `${this._t.identify}: ${role}` : this._t.identify;
+    return `<button class="small" data-identify="${esc(d.identify)}" title="${esc(this._t.identifyHint)}">${esc(text)}</button>`;
   }
 
   _renderSelect() {
     const t = this._t;
-    const devices = this._devices();
-    const options = (selected, exclude) =>
+    const options = (selected, exclude, newestFirst) =>
       `<option value="">${esc(t.choose)}</option>` +
-      devices
+      this._devices(newestFirst)
         .filter((d) => d.id !== exclude)
         .map(
           (d) =>
@@ -256,11 +335,17 @@ class NineLivesPanel extends HTMLElement {
         )
         .join("");
     const s = this._state;
+    const oldDevice = this._device(s.oldId);
+    const newDevice = this._device(s.newId);
+    const mixedUp = oldDevice && newDevice && oldDevice.created_at > newDevice.created_at;
     return `
       <p class="muted">${esc(t.intro)}</p>
       <input id="filter" type="search" placeholder="${esc(t.search)}" value="${esc(s.filter)}">
-      <label>${esc(t.oldDevice)}<select id="old">${options(s.oldId, s.newId)}</select></label>
-      <label>${esc(t.newDevice)}<select id="new">${options(s.newId, s.oldId)}</select></label>
+      <label>${esc(t.oldDevice)}<select id="old">${options(s.oldId, s.newId, false)}</select></label>
+      ${this._identifyButton(s.oldId)}
+      <label>${esc(t.newDevice)}<select id="new">${options(s.newId, s.oldId, true)}</select></label>
+      ${this._identifyButton(s.newId)}
+      ${mixedUp ? `<p class="warn">${esc(t.swappedHint)} <button id="swap-sides" class="small">${esc(t.swapSides)}</button></p>` : ""}
       <div class="actions">
         <button id="next" class="primary" ${s.oldId && s.newId ? "" : "disabled"}>${esc(t.next)}</button>
       </div>`;
@@ -287,13 +372,16 @@ class NineLivesPanel extends HTMLElement {
             ? `<tr class="tidy"><td colspan="3"><label><input type="checkbox" data-tidy="${i}" ${p.useTidy ? "checked" : ""}>
                 ${esc(t.tidy)}: <code>${esc(p.tidy)}</code> <span class="muted">(${esc(t.tidyHint)})</span></label></td></tr>`
             : "";
-        return `<tr><td>${esc(this._entityLabel(p.old))}</td><td class="arrow">←</td>
-          <td><select data-pair="${i}">${options}</select></td></tr>${tidy}`;
+        const value = (id) =>
+          id && this._stateText(id) ? `<div class="value">${esc(this._stateText(id))}</div>` : "";
+        return `<tr><td>${esc(this._entityLabel(p.old))}${value(p.old)}</td><td class="arrow">←</td>
+          <td><select data-pair="${i}">${options}</select>${value(p.new)}</td></tr>${tidy}`;
       })
       .join("");
     const free = s.newEntities.filter((n) => !used.has(n));
     return `
       <h2>${esc(this._deviceName(s.oldId))} → ${esc(this._deviceName(s.newId))}</h2>
+      <p>${this._identifyButton(s.oldId, t.oldDevice)} ${this._identifyButton(s.newId, t.newDevice)}</p>
       <p class="muted">${esc(t.pairsHint)}</p>
       <table><tr><th>${esc(t.oldDevice)}</th><th></th><th>${esc(t.newDevice)}</th></tr>${rows}</table>
       ${free.length ? `<p class="muted">${esc(t.unmatchedNew)}: ${free.map(esc).join(", ")}</p>` : ""}
@@ -413,6 +501,13 @@ class NineLivesPanel extends HTMLElement {
       this._render();
     });
     on("#next", "click", () => this._propose());
+    on("#swap-sides", "click", () => {
+      [this._state.oldId, this._state.newId] = [this._state.newId, this._state.oldId];
+      this._render();
+    });
+    this.shadowRoot.querySelectorAll("button[data-identify]").forEach((el) =>
+      el.addEventListener("click", (e) => this._identify(e.target.dataset.identify))
+    );
     on("#back", "click", () => this._go(this._state.step === "preview" ? "pairs" : "select"));
     on("#preview", "click", () => this._preview());
     on("#apply", "click", () => this._apply());
@@ -457,6 +552,7 @@ const STYLE = `
   th { text-align: left; font-weight: 500; padding: 4px; }
   td { padding: 4px; vertical-align: middle; word-break: break-word; }
   td select { margin: 0; }
+  .value { font-size: 13px; color: var(--secondary-text-color); margin-top: 2px; }
   tr.tidy td { padding-top: 0; font-size: 13px; }
   tr.tidy label { margin: 0 0 8px; font-weight: 400; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   tr.tidy input { width: auto; display: inline; margin: 0; }
@@ -466,6 +562,7 @@ const STYLE = `
     border: 1px solid var(--divider-color); background: transparent; color: var(--primary-color); }
   button.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
   button:disabled { opacity: .5; cursor: default; }
+  button.small { padding: 4px 10px; font-size: 13px; }
   button.icon { border: 0; color: inherit; font-size: 20px; padding: 4px 8px; }
   .muted { color: var(--secondary-text-color); }
   .warn { color: var(--warning-color, #ff9800); }
