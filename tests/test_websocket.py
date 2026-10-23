@@ -80,6 +80,11 @@ async def test_propose_preview_apply_undo(
 
     await client.send_json_auto_id({"type": "nine_lives/undo", "backup_id": backup_id})
     assert (await client.receive_json())["result"] == {"notes": []}
+
+    await client.send_json_auto_id({"type": "nine_lives/backups"})
+    history = (await client.receive_json())["result"]
+    assert [(h["backup_id"], h["can_undo"]) for h in history] == [(backup_id, False)]
+    assert history[0]["undone"]
     assert ent_reg.async_get("sensor.new_temperature").unique_id == "new-temperature"
 
 

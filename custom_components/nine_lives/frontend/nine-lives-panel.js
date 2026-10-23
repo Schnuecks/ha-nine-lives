@@ -37,8 +37,22 @@ const STRINGS = {
     done: "Done. The new device now uses the old entity IDs.",
     removeHint: "Once everything works, remove the old device from its integration.",
     again: "Swap another device",
-    history: "Recent swaps",
-    noHistory: "No swaps to undo.",
+    history: "Completed swaps",
+    noHistory: "No swaps yet.",
+    dEntities: "Entities",
+    dChanges: "References rewritten",
+    dReviews: "Flagged for review",
+    dReports: "Left for manual editing",
+    dCorrections: "Meter corrections",
+    dNotes: "Notes on undo",
+    newIdMark: "new ID",
+    previously: "was",
+    duringUndo: "on undo",
+    status_pending: "pending",
+    status_applied: "applied",
+    status_failed: "not possible",
+    undoneAt: "undone",
+    nothingElse: "No device references had to be rewritten.",
     undo: "Undo",
     undoConfirm: "Undo this swap?",
     undone: "Swap undone.",
@@ -91,8 +105,22 @@ const STRINGS = {
     done: "Fertig. Das neue Gerät nutzt jetzt die alten Entity-IDs.",
     removeHint: "Wenn alles läuft, entferne das alte Gerät aus seiner Integration.",
     again: "Weiteres Gerät tauschen",
-    history: "Letzte Tausche",
-    noHistory: "Nichts zum Rückgängigmachen.",
+    history: "Durchgeführte Gerätetausche",
+    noHistory: "Noch keine Gerätetausche.",
+    dEntities: "Entitäten",
+    dChanges: "Umgeschriebene Verweise",
+    dReviews: "Zur Prüfung markiert",
+    dReports: "Zum Anpassen von Hand gemeldet",
+    dCorrections: "Zähler-Korrekturen",
+    dNotes: "Hinweise beim Rückgängigmachen",
+    newIdMark: "neue ID",
+    previously: "vorher",
+    duringUndo: "beim Rückgängigmachen",
+    status_pending: "ausstehend",
+    status_applied: "angewandt",
+    status_failed: "nicht möglich",
+    undoneAt: "rückgängig gemacht",
+    nothingElse: "Es mussten keine Geräte-Verweise umgeschrieben werden.",
     undo: "Rückgängig",
     undoConfirm: "Diesen Tausch rückgängig machen?",
     undone: "Tausch rückgängig gemacht.",
@@ -122,6 +150,7 @@ class NineLivesPanel extends HTMLElement {
     this._state = { step: "select", oldId: "", newId: "", filter: "" };
     this._backups = [];
     this._deviceList = [];
+    this._open = new Set();
     this._pending = [];
   }
 
@@ -440,15 +469,45 @@ class NineLivesPanel extends HTMLElement {
       .join("")}</ul>`;
   }
 
+  _renderSwapDetails(b) {
+    const t = this._t;
+    const locale = this._locale();
+    const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 3, signDisplay: "always" });
+    const section = (title, items) =>
+      items.length ? `<h4>${esc(title)}</h4><ul>${items.join("")}</ul>` : "";
+    const pairs = b.pairs.map(
+      (p) => `<li><code>${esc(p.new)}</code> → <code>${esc(p.final)}</code>${
+        p.final !== p.old ? ` <span class="muted">(${esc(t.newIdMark)}, ${esc(t.previously)} <code>${esc(p.old)}</code>)</span>` : ""
+      }</li>`
+    );
+    const corrections = (b.corrections || []).map(
+      (c) => `<li><code>${esc(c.statistic_id)}</code>: ${esc(number.format(c.adjustment))} ${esc(c.unit)}
+        <span class="muted">– ${esc(t[`status_${c.status}`] || c.status)}${c.phase === "undo" ? `, ${esc(t.duringUndo)}` : ""}</span></li>`
+    );
+    return `<div class="details">
+      ${section(t.dEntities, pairs)}
+      ${b.changes.length ? section(t.dChanges, b.changes.map((c) => `<li>${esc(c)}</li>`)) : `<p class="muted">${esc(t.nothingElse)}</p>`}
+      ${section(t.dReviews, b.reviews.map((r) => `<li>${esc(r.path)}: ${esc(r.reason)}</li>`))}
+      ${section(t.dReports, b.reports.map((r) => `<li>${esc(r.where)}: ${esc(this._reason(r.reason))}</li>`))}
+      ${section(t.dCorrections, corrections)}
+      ${section(t.dNotes, (b.notes || []).map((n) => `<li>${esc(n)}</li>`))}
+    </div>`;
+  }
+
   _renderBackups() {
     const t = this._t;
     if (!this._backups.length) return this._renderPending() + `<p class="muted">${esc(t.noHistory)}</p>`;
-    const locale = this._hass.locale?.language || this._hass.language;
+    const locale = this._locale();
+    const when = (iso) => new Date(iso).toLocaleString(locale);
     return this._renderPending() + `<ul class="backups">${this._backups
       .map(
-        (b) => `<li><span><strong>${esc(b.old_device)} → ${esc(b.new_device)}</strong><br>
-          <span class="muted">${esc(new Date(b.created).toLocaleString(locale))} · ${esc(t.entities)}: ${b.entities.length}</span></span>
-          <button data-undo="${esc(b.backup_id)}">${esc(t.undo)}</button></li>`
+        (b) => `<li><details data-swap="${esc(b.backup_id)}" ${this._open.has(b.backup_id) ? "open" : ""}>
+          <summary><span><strong>${esc(b.old_device)} → ${esc(b.new_device)}</strong><br>
+          <span class="muted">${esc(when(b.created))} · ${esc(t.entities)}: ${b.pairs.length}${
+            b.undone ? ` · ${esc(t.undoneAt)} ${esc(when(b.undone))}` : ""
+          }</span></span>
+          ${b.can_undo ? `<button data-undo="${esc(b.backup_id)}">${esc(t.undo)}</button>` : ""}</summary>
+          ${this._renderSwapDetails(b)}</details></li>`
       )
       .join("")}</ul>`;
   }
@@ -525,8 +584,16 @@ class NineLivesPanel extends HTMLElement {
     );
     this.shadowRoot.querySelectorAll("button[data-undo]").forEach((el) =>
       el.addEventListener("click", (e) => {
+        // The button sits in the summary; keep it from opening the details.
+        e.preventDefault();
         this._state.message = null;
         this._undo(e.target.dataset.undo);
+      })
+    );
+    this.shadowRoot.querySelectorAll("details[data-swap]").forEach((el) =>
+      el.addEventListener("toggle", () => {
+        if (el.open) this._open.add(el.dataset.swap);
+        else this._open.delete(el.dataset.swap);
       })
     );
   }
@@ -571,8 +638,14 @@ const STYLE = `
   code { font-size: 13px; }
   ul { padding-left: 20px; margin: 4px 0; }
   ul.backups { list-style: none; padding: 0; }
-  ul.backups li { display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    padding: 8px 0; border-top: 1px solid var(--divider-color); }
+  ul.backups > li { padding: 8px 0; border-top: 1px solid var(--divider-color); }
+  ul.backups summary { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    cursor: pointer; list-style: none; }
+  ul.backups summary::-webkit-details-marker { display: none; }
+  ul.backups summary > span::before { content: "▸ "; color: var(--secondary-text-color); }
+  ul.backups details[open] summary > span::before { content: "▾ "; }
+  .details { margin: 8px 0 4px 18px; font-size: 14px; }
+  .details h4 { font-size: 14px; font-weight: 500; margin: 10px 0 2px; }
   @media (max-width: 600px) { main { padding: 8px; } }
 `;
 

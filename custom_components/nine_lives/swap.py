@@ -403,6 +403,40 @@ def _free_entity_id(hass: HomeAssistant, entity_id: str) -> None:
         hass.states.async_remove(entity_id)
 
 
+def _history_entry(backup: dict[str, Any], plan: Plan | None = None) -> dict[str, Any]:
+    """What a swap did, in a form the panel can show later."""
+    new_ids = backup.get("new_ids", {})
+    entry: dict[str, Any] = {
+        "created": backup["created"],
+        "old_device": backup["old_device"]["name"],
+        "new_device": backup["new_device"]["name"],
+        "pairs": [
+            {
+                "old": p["old"]["entity_id"],
+                "new": p["new"]["entity_id"],
+                "final": new_ids.get(p["old"]["entity_id"], p["old"]["entity_id"]),
+            }
+            for p in backup["pairs"]
+        ],
+        "changes": [],
+        "reviews": [],
+        "reports": [],
+        "corrections": [],
+        "undone": None,
+        "notes": [],
+    }
+    if plan is not None:
+        details = plan.as_dict()
+        entry["changes"] = [c["path"] for f in details["files"] for c in f["changes"]]
+        entry["reviews"] = [r for f in details["files"] for r in f["reviews"]]
+        entry["reports"] = details["reports"] + [
+            {"where": f["kind"], "reason": f["blocked"]}
+            for f in details["files"]
+            if f["blocked"]
+        ]
+    return entry
+
+
 class SwapManager:
     """Applies swaps and keeps the backups needed to undo them."""
 
@@ -410,6 +444,8 @@ class SwapManager:
         self.hass = hass
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self.backups: dict[str, dict[str, Any]] = {}
+        # What each swap did, kept after an undo as well so it stays traceable.
+        self.history: dict[str, dict[str, Any]] = {}
         # Meter sum corrections waiting for the recorder to compile their period.
         self.pending: list[dict[str, Any]] = []
         self._unsubs: list[Any] = []
@@ -417,7 +453,11 @@ class SwapManager:
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
         self.backups = data.get("backups", {})
+        self.history = data.get("history", {})
         self.pending = data.get("pending", [])
+        # Swaps made before the history existed: what the backup still tells.
+        for swap_id, backup in self.backups.items():
+            self.history.setdefault(swap_id, _history_entry(backup))
         for item in self.pending:
             self._schedule(item, energy.next_check(item))
 
@@ -428,21 +468,45 @@ class SwapManager:
         self._unsubs.clear()
 
     async def _async_save(self) -> None:
-        await self._store.async_save({"backups": self.backups, "pending": self.pending})
+        await self._store.async_save(
+            {"backups": self.backups, "history": self.history, "pending": self.pending}
+        )
 
     async def _async_add_corrections(
-        self, handovers: list[tuple[str, Any, Any]]
+        self, handovers: list[tuple[str, Any, Any]], swap_id: str, phase: str
     ) -> None:
-        """Queue sum corrections for meters handing over (statistic, before, after)."""
+        """Queue sum corrections for meters handing over (statistic, before, after).
+
+        phase is "swap" or "undo"; the swap's history lists each correction.
+        """
         if "recorder" not in self.hass.config.components:
             return
         now = dt_util.utcnow()
         for statistic_id, before, after in handovers:
             item = energy.pending_adjustment(statistic_id, before, after, now)
             if item:
+                item["id"] = uuid.uuid4().hex
+                item["swap_id"] = swap_id
                 self.pending.append(item)
+                if entry := self.history.get(swap_id):
+                    entry.setdefault("corrections", []).append(
+                        {
+                            "id": item["id"],
+                            "phase": phase,
+                            "statistic_id": statistic_id,
+                            "adjustment": item["adjustment"],
+                            "unit": item["unit"],
+                            "status": "pending",
+                        }
+                    )
                 self._schedule(item, energy.next_check(item))
         await self._async_save()
+
+    def _mark_correction(self, item: dict[str, Any], status: str) -> None:
+        entry = self.history.get(item.get("swap_id", ""))
+        for correction in (entry or {}).get("corrections", []):
+            if correction["id"] == item.get("id"):
+                correction["status"] = status
 
     @callback
     def _schedule(self, item: dict[str, Any], when: Any) -> None:
@@ -455,6 +519,7 @@ class SwapManager:
                 self._schedule(item, dt_util.utcnow() + energy.RETRY_DELAY)
                 return
             self.pending.remove(item)
+            self._mark_correction(item, "applied" if result else "failed")
             await self._async_save()
 
         unsub = async_track_point_in_utc_time(
@@ -506,6 +571,7 @@ class SwapManager:
                 if f.new_text is not None
             },
         }
+        self.history[backup_id] = _history_entry(self.backups[backup_id], plan)
         await self._async_save()
 
         # The new meters continue the old meters' sums from here on. An old meter
@@ -559,7 +625,7 @@ class SwapManager:
                 await scan.async_save_dashboard(
                     hass, dashboard.url_path, dashboard.new_config
                 )
-        await self._async_add_corrections(handovers)
+        await self._async_add_corrections(handovers, backup_id, "swap")
         notice.async_swapped(
             hass,
             backup_id,
@@ -694,8 +760,13 @@ class SwapManager:
             await scan.async_save_dashboard(hass, dashboard["url_path"], restored)
 
         # The old meters take their sums back over from the new ones.
+        if entry := self.history.get(backup_id):
+            entry["undone"] = dt_util.utcnow().isoformat()
+            entry["notes"] = notes
         await self._async_add_corrections(
-            [(eid, last, hass.states.get(eid)) for eid, last in last_states.items()]
+            [(eid, last, hass.states.get(eid)) for eid, last in last_states.items()],
+            backup_id,
+            "undo",
         )
 
         notice.async_undone(hass, backup_id)

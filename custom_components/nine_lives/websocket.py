@@ -159,21 +159,19 @@ async def ws_apply(
 def ws_backups(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """List the swaps that can still be undone, newest first."""
-    backups = sorted(
-        _manager(hass).backups.items(), key=lambda b: b[1]["created"], reverse=True
-    )
+    """All swaps with what they did, newest first; can_undo marks the undoable ones."""
+    manager = _manager(hass)
+    swaps = sorted(manager.history.items(), key=lambda s: s[1]["created"], reverse=True)
     connection.send_result(
         msg["id"],
         [
             {
-                "backup_id": backup_id,
-                "created": b["created"],
-                "old_device": b["old_device"]["name"],
-                "new_device": b["new_device"]["name"],
-                "entities": [p["old"]["entity_id"] for p in b["pairs"]],
+                **entry,
+                "backup_id": swap_id,
+                "entities": [p["final"] for p in entry["pairs"]],
+                "can_undo": swap_id in manager.backups and not entry.get("undone"),
             }
-            for backup_id, b in backups
+            for swap_id, entry in swaps
         ],
     )
 
