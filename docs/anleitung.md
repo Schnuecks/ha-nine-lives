@@ -190,8 +190,9 @@ Rückgängig:
 - korrigiert die Zähler-Summen erneut, jetzt für den Sprung vom neuen zurück zum alten Zähler,
 - blendet die Benachrichtigung aus.
 
-Rückgängig braucht das alte Gerät. Hast du es schon aus seiner Integration entfernt, bekommt
-das neue Gerät zwar seine eigenen IDs zurück, das alte kommt aber nicht wieder.
+Rückgängig braucht das alte Gerät. Hast du es aus seiner Integration entfernt, könnte es nicht
+zurückkommen, deshalb ist der Tausch dann endgültig: Der Eintrag zeigt „altes Gerät entfernt“
+und bietet kein Rückgängig mehr an.
 
 ## Typische Fälle
 

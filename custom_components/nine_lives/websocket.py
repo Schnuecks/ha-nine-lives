@@ -169,7 +169,8 @@ def ws_backups(
                 **entry,
                 "backup_id": swap_id,
                 "entities": [p["final"] for p in entry["pairs"]],
-                "can_undo": swap_id in manager.backups and not entry.get("undone"),
+                "can_undo": manager.can_undo(swap_id),
+                "old_device_removed": manager.old_device_removed(swap_id),
             }
             for swap_id, entry in swaps
         ],
