@@ -138,3 +138,18 @@ async def test_devices_tell_old_and_new_apart(
     assert old["identify"] is None
     assert new["identify"] == identify.entity_id
     assert new["integration"] == "new_integration"
+
+
+async def test_no_deprecated_registry_access(
+    hass: HomeAssistant, hass_ws_client, devices, caplog
+) -> None:
+    """Home Assistant warns about deprecated registry APIs; Nine Lives uses none."""
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id({"type": "nine_lives/devices"})
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "nine_lives/removed_devices"})
+    removed = (await client.receive_json())["result"]
+
+    assert removed == {"supported": True, "devices": []}
+    assert "deprecated" not in caplog.text

@@ -315,10 +315,13 @@ class NineLivesPanel extends HTMLElement {
   }
 
   async _loadDevices() {
-    [this._deviceList, this._removedList] = await Promise.all([
+    let removed;
+    [this._deviceList, removed] = await Promise.all([
       this._call({ type: "nine_lives/devices" }),
       this._call({ type: "nine_lives/removed_devices" }),
     ]);
+    this._removedSupported = removed.supported;
+    this._removedList = removed.devices;
     this._render();
   }
 
@@ -420,7 +423,7 @@ class NineLivesPanel extends HTMLElement {
       <p class="muted">${esc(t.intro)}</p>
       <input id="filter" type="search" placeholder="${esc(t.search)}" value="${esc(s.filter)}">
       <label>${esc(t.oldDevice)}${oldSelect}</label>
-      <p><a href="#" id="mode">${esc(s.fromDeleted ? t.normalLink : t.removedLink)}</a></p>
+      ${this._removedSupported === false && !s.fromDeleted ? "" : `<p><a href="#" id="mode">${esc(s.fromDeleted ? t.normalLink : t.removedLink)}</a></p>`}
       ${s.fromDeleted ? "" : this._identifyButton(s.oldId)}
       <label>${esc(t.newDevice)}<select id="new">${options(s.newId, s.oldId, true)}</select></label>
       ${this._identifyButton(s.newId)}

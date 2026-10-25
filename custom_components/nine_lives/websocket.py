@@ -253,7 +253,7 @@ def ws_devices(
     """
     ent_reg = er.async_get(hass)
     devices = []
-    for device in dr.async_get(hass).devices.values():
+    for device in dr.async_get(hass).devices:
         # Services such as Sun or Backup are not hardware that gets replaced.
         if device.disabled_by or device.entry_type is dr.DeviceEntryType.SERVICE:
             continue
@@ -295,17 +295,23 @@ def ws_devices(
 def ws_removed_devices(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Devices already removed from Home Assistant whose entities can be taken over."""
+    """Devices already removed from Home Assistant whose entities can be taken over.
+
+    supported is false when this Home Assistant no longer exposes removed devices.
+    """
     connection.send_result(
         msg["id"],
-        [
-            {
-                "id": d.id,
-                "name": d.name,
-                "removed_at": d.removed_at,
-                "area_id": d.area_id,
-                "entities": [e.entity_id for e in d.entities],
-            }
-            for d in deleted.removed_devices(hass)
-        ],
+        {
+            "supported": deleted.supported(hass),
+            "devices": [
+                {
+                    "id": d.id,
+                    "name": d.name,
+                    "removed_at": d.removed_at,
+                    "area_id": d.area_id,
+                    "entities": [e.entity_id for e in d.entities],
+                }
+                for d in deleted.removed_devices(hass)
+            ],
+        },
     )

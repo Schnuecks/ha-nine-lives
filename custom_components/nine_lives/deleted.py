@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.components.recorder import get_instance
@@ -28,6 +29,13 @@ from .matching import EntityInfo
 
 # Entities removed this close to their device count as belonging to it.
 SAME_REMOVAL_SECONDS = 120
+# Older removals are not offered; Home Assistant also forgets orphaned entries after
+# 30 days.
+OFFER_DAYS = 30
+# Entities of services rather than hardware (AI assistants, update entries, …).
+SERVICE_DOMAINS = {"ai_task", "conversation", "stt", "tts", "update", "wake_word"}
+# Integrations whose devices are software, such as the repositories HACS manages.
+SOFTWARE_INTEGRATIONS = {"hacs"}
 
 
 @dataclass
@@ -40,18 +48,6 @@ class RemovedDevice:
     area_id: str | None
     labels: list[str]
     entities: list[er.DeletedRegistryEntry]
-
-
-def deleted_entity(
-    ent_reg: er.EntityRegistry, entity_id: str
-) -> er.DeletedRegistryEntry | None:
-    """The deleted entry with this entity ID, if the ID is not in use again."""
-    if ent_reg.async_get(entity_id):
-        return None
-    for entry in ent_reg.deleted_entities.values():
-        if entry.entity_id == entity_id:
-            return entry
-    return None
 
 
 def _name(
@@ -71,17 +67,40 @@ def _identifier_patterns(device: dr.DeletedDeviceEntry) -> list[re.Pattern[str]]
     "deviceid_ABC-0C-45" turns up as "ABC-0C-45-45-MatterLight-6-0".
     """
     tokens = set()
-    for _, value in device.identifiers:
-        value = str(value)
-        tokens.add(value)
-        prefix, _, rest = value.partition("_")
-        if rest and prefix.isalpha():
-            tokens.add(rest)
+    # Identifiers are (domain, value) pairs, but some integrations store longer tuples.
+    for identifier in device.identifiers:
+        for part in tuple(identifier)[1:]:
+            value = str(part)
+            tokens.add(value)
+            prefix, _, rest = value.partition("_")
+            if rest and prefix.isalpha():
+                tokens.add(rest)
     return [
         re.compile(rf"(?<![A-Za-z0-9]){re.escape(t)}(?![A-Za-z0-9])")
         for t in tokens
         if len(t) >= 6
     ]
+
+
+def _deleted_device_entries(
+    dev_reg: dr.DeviceRegistry,
+) -> list[dr.DeletedDeviceEntry] | None:
+    """Removed devices, or None when this Home Assistant does not keep them.
+
+    Home Assistant has no public way to read removed devices; its deprecated
+    `deleted_devices` property is due to go in 2027.9 and logs a warning. The
+    container behind it is read directly, and if it is gone, swaps from removed
+    devices are simply not offered.
+    """
+    items = getattr(dev_reg, "_deleted_devices", None)
+    try:
+        return list(items.values()) if items is not None else None
+    except AttributeError:
+        return None
+
+
+def supported(hass: HomeAssistant) -> bool:
+    return _deleted_device_entries(dr.async_get(hass)) is not None
 
 
 def removed_devices(hass: HomeAssistant) -> list[RemovedDevice]:
@@ -94,8 +113,26 @@ def removed_devices(hass: HomeAssistant) -> list[RemovedDevice]:
     """
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
+    devices = _deleted_device_entries(dev_reg) or []
+    patterns = {device.id: _identifier_patterns(device) for device in devices}
+
+    # Which removed devices each deleted entity's unique ID points to (checked once).
+    owners = {
+        e.id: {
+            d
+            for d, pats in patterns.items()
+            if any(p.search(e.unique_id) for p in pats)
+        }
+        for e in ent_reg.deleted_entities.values()
+    }
+
+    since = dt_util.utcnow() - timedelta(days=OFFER_DAYS)
     result = []
-    for device in dev_reg.deleted_devices.values():
+    for device in devices:
+        if device.modified_at < since or any(
+            identifier[0] in SOFTWARE_INTEGRATIONS for identifier in device.identifiers
+        ):
+            continue
         candidates = [
             e
             for e in ent_reg.deleted_entities.values()
@@ -105,12 +142,12 @@ def removed_devices(hass: HomeAssistant) -> list[RemovedDevice]:
             and not ent_reg.async_get(e.entity_id)
             and hass.states.get(e.entity_id) is None
         ]
-        patterns = _identifier_patterns(device)
-        matched = [
-            e for e in candidates if any(p.search(e.unique_id) for p in patterns)
-        ]
-        entities = matched or candidates
-        if not entities:
+        matched = [e for e in candidates if device.id in owners[e.id]]
+        # Entities that clearly belong to another removed device never fall back
+        # to this one, even when this device has none of its own left.
+        unclaimed = [e for e in candidates if not owners[e.id]]
+        entities = matched or unclaimed
+        if not entities or all(e.domain in SERVICE_DOMAINS for e in entities):
             continue
         result.append(
             RemovedDevice(
@@ -129,6 +166,17 @@ def removed_device(hass: HomeAssistant, device_id: str) -> RemovedDevice | None:
     return next((d for d in removed_devices(hass) if d.id == device_id), None)
 
 
+def removed_entry(
+    device: RemovedDevice, entity_id: str
+) -> er.DeletedRegistryEntry | None:
+    """The removed device's own entry with this entity ID.
+
+    Several deleted entries can share an entity ID (earlier devices that used it), so
+    the entry is looked up among the device's entities, not the whole registry.
+    """
+    return next((e for e in device.entities if e.entity_id == entity_id), None)
+
+
 async def async_last_states(
     hass: HomeAssistant, entity_ids: list[str]
 ) -> dict[str, State]:
@@ -143,7 +191,9 @@ async def async_last_states(
     def _get() -> dict[str, State]:
         result = {}
         for entity_id in entity_ids:
-            states = get_last_state_changes(hass, 10, entity_id).get(entity_id, [])
+            # A device is often unavailable for a while before it is removed, so look
+            # further back than the last few states.
+            states = get_last_state_changes(hass, 200, entity_id).get(entity_id, [])
             real = [
                 s
                 for s in states

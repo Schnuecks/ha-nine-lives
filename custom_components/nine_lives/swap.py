@@ -209,7 +209,7 @@ async def async_plan(
     if old_device_id == new_device_id:
         raise SwapError("Old and new device are the same")
     from_deleted = dev_reg.async_get(old_device_id) is None
-    if from_deleted and old_device_id not in dev_reg.deleted_devices:
+    if from_deleted and deleted.removed_device(hass, old_device_id) is None:
         raise SwapError("Device not found")
     if not dev_reg.async_get(new_device_id):
         raise SwapError("Device not found")
@@ -226,8 +226,8 @@ async def async_plan(
     for old, new in pairs:
         new_entry = ent_reg.async_get(new)
         if from_deleted:
-            old_entry = deleted.deleted_entity(ent_reg, old)
-            if not removed or old_entry not in removed.entities:
+            old_entry = deleted.removed_entry(removed, old) if removed else None
+            if old_entry is None:
                 raise SwapError(f"{old} does not belong to the old device")
         else:
             old_entry = ent_reg.async_get(old)
@@ -584,7 +584,7 @@ class SwapManager:
             }
             old_area, old_labels = removed.area_id, set(removed.labels)
             old_snapshots = {
-                old: deleted.snapshot(deleted.deleted_entity(ent_reg, old))
+                old: deleted.snapshot(deleted.removed_entry(removed, old))
                 for old, _ in plan.pairs
             }
         else:
@@ -655,6 +655,12 @@ class SwapManager:
                     else None
                 )
                 before = await energy.async_last_known_state(hass, old_id, state_class)
+            _LOGGER.debug(
+                "Meter handover %s: before=%s after=%s",
+                old_id,
+                before,
+                hass.states.get(new_id),
+            )
             handovers.append(
                 (plan.new_ids.get(old_id, old_id), before, hass.states.get(new_id))
             )

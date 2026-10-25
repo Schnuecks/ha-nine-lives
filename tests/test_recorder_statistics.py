@@ -92,25 +92,28 @@ async def test_new_meter_continues_sum_of_removed_meter(
     assert await _sums(hass, p0) == [10.0, 15.0, 17.0]
 
 
-@pytest.mark.parametrize("old_meter_unavailable", [False, True])
+@pytest.mark.parametrize("old_meter", ["available", "unavailable", "removed"])
 async def test_swap_corrects_the_jump_of_a_used_meter(
     recorder_mock: Recorder,
     hass: HomeAssistant,
     freezer: FrozenDateTimeFactory,
-    old_meter_unavailable: bool,
+    old_meter: str,
 ) -> None:
     """A used plug at 50 kWh replaces a meter at 115 kWh: the sum must not jump.
 
-    That also holds when the old meter is already unplugged at the swap: then the
-    reading the recorder compiled last is the base.
+    That also holds when the old meter is already unplugged at the swap, or even
+    removed from Home Assistant: then the reading the recorder compiled last is the
+    base.
     """
     await async_setup_component(hass, "sensor", {})
     dev_reg = dr.async_get(hass)
     reg = er.async_get(hass)
     devices = {}
+    entries = {}
     for name in ("zha", "matter"):
         entry = MockConfigEntry(domain=name)
         entry.add_to_hass(hass)
+        entries[name] = entry
         devices[name] = dev_reg.async_get_or_create(
             config_entry_id=entry.entry_id, identifiers={(name, "plug")}
         ).id
@@ -118,6 +121,7 @@ async def test_swap_corrects_the_jump_of_a_used_meter(
         "sensor",
         "zha",
         "old-plug",
+        config_entry=entries["zha"],
         device_id=devices["zha"],
         suggested_object_id="washer_energy",
         capabilities={"state_class": "total_increasing"},
@@ -146,8 +150,12 @@ async def test_swap_corrects_the_jump_of_a_used_meter(
     await _compile(hass, p0 + period)
 
     freezer.move_to(p0 + 2 * period + timedelta(minutes=1))
-    if old_meter_unavailable:
+    if old_meter == "unavailable":
         hass.states.async_set(OLD, "unavailable", {"friendly_name": "Washer"})
+    elif old_meter == "removed":
+        dev_reg.async_remove_device(devices["zha"])
+        await hass.async_block_till_done()
+        hass.states.async_remove(OLD)
     manager = SwapManager(hass)
     plan = await async_plan(hass, devices["zha"], devices["matter"], [(OLD, new)])
     await manager.async_apply(plan)
