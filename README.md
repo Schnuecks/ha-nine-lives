@@ -89,6 +89,8 @@ Nine Lives**. The panel appears in the sidebar for admins.
   `!include`, because rewriting it would write those values into the file.
 - **Device triggers:** a trigger like "button pressed" of a Zigbee remote may not exist on
   the new device. Such triggers are rewritten but flagged for review.
+- **Old device already deleted?** Its entities can still be taken over from the entries Home
+  Assistant keeps after a removal, see the [guide](docs/guide.md#old-device-already-removed).
 - **Undo** works as long as the old device still exists. Once you removed it from its
   integration, the swap is final and no longer offers undo; it stays in the list of completed
   swaps.

@@ -13,6 +13,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.nine_lives import deleted
 from custom_components.nine_lives.swap import (
     SwapError,
     SwapManager,
@@ -445,3 +446,63 @@ async def test_no_undo_once_the_old_device_is_removed(
     assert not manager.can_undo(swap_id)
     with pytest.raises(SwapError, match="old device was removed"):
         await manager.async_undo(swap_id)
+
+
+async def _remove_old_device(hass: HomeAssistant, setup) -> None:
+    """What happens when the old device is deleted in its manufacturer's app."""
+    dr.async_get(hass).async_remove_device(setup["old_dev"].id)
+    await hass.async_block_till_done()
+    for entity_id in (OLD_TEMP, OLD_BATTERY):
+        hass.states.async_remove(entity_id)
+
+
+async def test_removed_device_is_found_with_its_entities(
+    hass: HomeAssistant, setup
+) -> None:
+    await _remove_old_device(hass, setup)
+
+    found = deleted.removed_devices(hass)
+
+    assert [d.id for d in found] == [setup["old_dev"].id]
+    assert [e.entity_id for e in found[0].entities] == [OLD_BATTERY, OLD_TEMP]
+    assert found[0].name == "bathroom_battery, bathroom_temperature"
+
+
+async def test_swap_from_a_removed_device(hass: HomeAssistant, setup) -> None:
+    ent_reg = er.async_get(hass)
+    await _remove_old_device(hass, setup)
+    manager = SwapManager(hass)
+
+    plan = await async_plan(
+        hass, setup["old_dev"].id, setup["new_dev"].id, setup["pairs"]
+    )
+    assert plan.from_deleted
+    swap_id = await manager.async_apply(plan)
+
+    taken_over = ent_reg.async_get(OLD_TEMP)
+    assert taken_over.unique_id == "ikea-temp"
+    assert (taken_over.name, taken_over.icon) == ("Bad", "mdi:shower")
+    assert ent_reg.async_get(OLD_BATTERY).unique_id == "ikea-battery"
+    text = setup["automations"].read_text(encoding="utf-8")
+    assert setup["old_dev"].id not in text
+    assert setup["old_temp"].id not in text
+    # The old device cannot return, so there is nothing to undo.
+    assert manager.history[swap_id]["from_deleted"]
+    assert not manager.can_undo(swap_id)
+
+
+async def test_removed_device_entities_must_be_free(hass: HomeAssistant, setup) -> None:
+    await _remove_old_device(hass, setup)
+    # Someone gave another entity the old ID in the meantime.
+    ent_reg = er.async_get(hass)
+    ent_reg.async_update_entity(
+        setup["new_battery"].entity_id, new_entity_id=OLD_BATTERY
+    )
+
+    with pytest.raises(SwapError, match="does not belong"):
+        await async_plan(
+            hass,
+            setup["old_dev"].id,
+            setup["new_dev"].id,
+            [(OLD_TEMP, "sensor.ikea_temperature"), (OLD_BATTERY, OLD_BATTERY)],
+        )

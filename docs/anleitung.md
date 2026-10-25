@@ -17,8 +17,9 @@ kurzen Überblick und die Installation findest du in der [README](../README.de.m
 
 1. **Das neue Gerät koppeln**, wie gewohnt in seiner Integration. Name und Entity-IDs sind
    egal, sie werden beim Tausch ersetzt.
-2. **Das alte Gerät in Home Assistant lassen.** Nine Lives kann nur Geräte auswählen, die
-   Home Assistant noch kennt. Entferne es vor dem Tausch nicht aus seiner Integration.
+2. **Das alte Gerät am besten in Home Assistant lassen**, bis der Tausch erledigt ist; dann
+   lässt er sich rückgängig machen. Ist es schon weg, etwa weil du es zuerst in der App des
+   Herstellers gelöscht hast, siehe [Altes Gerät schon gelöscht](#altes-gerät-schon-gelöscht).
 3. **Abgesteckt oder kaputt ist kein Problem.** Das alte Gerät darf schon nicht mehr
    erreichbar sein. Bei Zählern nimmt Nine Lives dann den Stand, den die Statistik zuletzt
    erfasst hat.
@@ -212,6 +213,21 @@ Assistant stehen.
 Überlass es Nine Lives: Schalter, Leistung, Strom und Energie werden gepaart, und das
 Energie-Dashboard läuft ohne Sprung weiter. Misst die neue Steckdose mehr (zum Beispiel die
 Spannung), behalten diese Entitäten einfach ihre eigenen IDs.
+
+### Altes Gerät schon gelöscht
+
+Eine häufige Reihenfolge: Das alte Gerät wird zuerst in der App oder Bridge des Herstellers
+gelöscht, wodurch es auch aus Home Assistant verschwindet. Home Assistant behält seine
+Entitäten aber als gelöschte Einträge, mit Entity-IDs und Einstellungen. Unter der Liste der
+alten Geräte **„Altes Gerät nicht mehr in der Liste? Aus gelöschten Einträgen übernehmen“**
+wählen. Die Liste zeigt dann gelöschte Geräte, deren Entitäten sich noch übernehmen lassen,
+mit dem Zeitpunkt des Löschens. Nine Lives erkennt die Entitäten daran, dass sie zusammen mit
+ihrem Gerät gelöscht wurden, und zeigt ihren letzten Namen und Wert aus dem Verlauf.
+
+Alles andere läuft wie gewohnt: Die neuen Entitäten übernehmen IDs und Einstellungen,
+Geräte-Verweise werden umgeschrieben und Zähler-Summen laufen weiter (ausgehend vom zuletzt
+erfassten Stand). Rückgängig machen lässt sich so ein Tausch nicht, weil das alte Gerät nicht
+zurückkommen kann.
 
 ### Fernbedienungen und Taster
 

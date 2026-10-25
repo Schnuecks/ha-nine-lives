@@ -90,6 +90,9 @@ Nine Lives** einrichten. Das Panel erscheint für Admins in der Seitenleiste.
   `!include` nutzt, denn beim Umschreiben landeten diese Werte im Klartext in der Datei.
 - **Geräte-Trigger:** Ein Trigger wie „Taste gedrückt“ einer Zigbee-Fernbedienung gibt es am
   neuen Gerät vielleicht nicht. Solche Trigger werden umgeschrieben, aber zur Prüfung markiert.
+- **Altes Gerät schon gelöscht?** Seine Entitäten lassen sich trotzdem übernehmen, aus den
+  Einträgen, die Home Assistant nach dem Löschen behält, siehe die
+  [Anleitung](docs/anleitung.md#altes-gerät-schon-gelöscht).
 - **Rückgängig** geht, solange das alte Gerät noch existiert. Hast du es aus seiner
   Integration entfernt, ist der Tausch endgültig und bietet kein Rückgängig mehr an; er bleibt
   in der Liste der durchgeführten Gerätetausche stehen.

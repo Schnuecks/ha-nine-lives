@@ -68,6 +68,14 @@ const STRINGS = {
     swappedHint: "The device chosen as old was added after the new one. Mixed up?",
     swapSides: "Swap old and new",
     identify: "Identify",
+    removedLink: "Old device no longer in the list? Take over from removed entries",
+    normalLink: "Back to the devices in Home Assistant",
+    removedHint:
+      "Devices removed from Home Assistant, for example after deleting them in the manufacturer's app. Their entities are kept as deleted entries and can be taken over.",
+    removedAt: "removed",
+    noRemoved: "No removed devices with entities that could be taken over.",
+    deviceFromDeleted: "The old device is already removed; its stored entries are taken over. This swap cannot be undone.",
+    fromDeletedMark: "taken over from removed entries",
     identifyHint: "Makes the device blink or beep so you can find it.",
     pendingHint: "applied after the recorder's next 5-minute run, around",
   },
@@ -137,6 +145,14 @@ const STRINGS = {
     swappedHint: "Das als alt gewählte Gerät wurde nach dem neuen hinzugefügt. Vertauscht?",
     swapSides: "Alt und neu tauschen",
     identify: "Identifizieren",
+    removedLink: "Altes Gerät nicht mehr in der Liste? Aus gelöschten Einträgen übernehmen",
+    normalLink: "Zurück zu den Geräten in Home Assistant",
+    removedHint:
+      "Geräte, die aus Home Assistant entfernt wurden, etwa nach dem Löschen in der App des Herstellers. Ihre Entitäten sind als gelöschte Einträge erhalten und lassen sich übernehmen.",
+    removedAt: "gelöscht",
+    noRemoved: "Keine gelöschten Geräte mit Entitäten, die sich übernehmen lassen.",
+    deviceFromDeleted: "Das alte Gerät ist schon gelöscht; seine gespeicherten Einträge werden übernommen. Dieser Tausch lässt sich nicht rückgängig machen.",
+    fromDeletedMark: "aus gelöschten Einträgen übernommen",
     identifyHint: "Lässt das Gerät blinken oder piepen, damit du es findest.",
     pendingHint: "wird nach dem nächsten 5-Minuten-Lauf der Statistik angewandt, gegen",
   },
@@ -178,7 +194,7 @@ class NineLivesPanel extends HTMLElement {
   }
 
   _deviceName(id) {
-    const own = this._device?.(id);
+    const own = this._device?.(id) || (this._removedList || []).find((d) => d.id === id);
     if (own) return own.name;
     const d = this._hass.devices[id];
     if (!d) return id;
@@ -187,7 +203,8 @@ class NineLivesPanel extends HTMLElement {
 
   _entityLabel(entityId) {
     const state = this._hass.states[entityId];
-    const name = state?.attributes.friendly_name;
+    const name =
+      state?.attributes.friendly_name || this._state.removedDetails?.[entityId]?.name;
     return name ? `${name} (${entityId})` : entityId;
   }
 
@@ -247,6 +264,7 @@ class NineLivesPanel extends HTMLElement {
     const olds = [...result.pairs.map((p) => p.old), ...result.unmatched_old];
     this._state.newEntities = [...result.pairs.map((p) => p.new), ...result.unmatched_new];
     const tidy = result.suggested_ids || {};
+    this._state.removedDetails = result.removed_details || {};
     this._state.pairs = olds.map((old) => ({
       old,
       new: byOld[old] || "",
@@ -292,8 +310,19 @@ class NineLivesPanel extends HTMLElement {
   }
 
   async _loadDevices() {
-    this._deviceList = await this._call({ type: "nine_lives/devices" });
+    [this._deviceList, this._removedList] = await Promise.all([
+      this._call({ type: "nine_lives/devices" }),
+      this._call({ type: "nine_lives/removed_devices" }),
+    ]);
     this._render();
+  }
+
+  _removedLabel(d) {
+    const area = d.area_id && this._hass.areas[d.area_id]?.name;
+    const when = new Date(d.removed_at).toLocaleString(this._locale());
+    return [d.name, area, `${this._t.removedAt} ${when}`, `${this._t.entities}: ${d.entities.length}`]
+      .filter(Boolean)
+      .join(" · ");
   }
 
   _device(id) {
@@ -337,7 +366,7 @@ class NineLivesPanel extends HTMLElement {
 
   _stateText(entityId) {
     const state = this._hass.states[entityId];
-    if (!state) return "";
+    if (!state) return this._state.removedDetails?.[entityId]?.value || "";
     if (this._hass.formatEntityState) return this._hass.formatEntityState(state);
     const unit = state.attributes.unit_of_measurement;
     return unit ? `${state.state} ${unit}` : state.state;
@@ -368,12 +397,26 @@ class NineLivesPanel extends HTMLElement {
     const s = this._state;
     const oldDevice = this._device(s.oldId);
     const newDevice = this._device(s.newId);
-    const mixedUp = oldDevice && newDevice && oldDevice.created_at > newDevice.created_at;
+    const mixedUp =
+      !s.fromDeleted && oldDevice && newDevice && oldDevice.created_at > newDevice.created_at;
+    const removed = this._removedList || [];
+    const oldSelect = s.fromDeleted
+      ? `<p class="muted">${esc(t.removedHint)}</p>` +
+        (removed.length
+          ? `<select id="old"><option value="">${esc(t.choose)}</option>${removed
+              .map(
+                (d) =>
+                  `<option value="${esc(d.id)}" ${d.id === s.oldId ? "selected" : ""}>${esc(this._removedLabel(d))}</option>`
+              )
+              .join("")}</select>`
+          : `<p class="warn">${esc(t.noRemoved)}</p>`)
+      : `<select id="old">${options(s.oldId, s.newId, false)}</select>`;
     return `
       <p class="muted">${esc(t.intro)}</p>
       <input id="filter" type="search" placeholder="${esc(t.search)}" value="${esc(s.filter)}">
-      <label>${esc(t.oldDevice)}<select id="old">${options(s.oldId, s.newId, false)}</select></label>
-      ${this._identifyButton(s.oldId)}
+      <label>${esc(t.oldDevice)}${oldSelect}</label>
+      <p><a href="#" id="mode">${esc(s.fromDeleted ? t.normalLink : t.removedLink)}</a></p>
+      ${s.fromDeleted ? "" : this._identifyButton(s.oldId)}
       <label>${esc(t.newDevice)}<select id="new">${options(s.newId, s.oldId, true)}</select></label>
       ${this._identifyButton(s.newId)}
       ${mixedUp ? `<p class="warn">${esc(t.swappedHint)} <button id="swap-sides" class="small">${esc(t.swapSides)}</button></p>` : ""}
@@ -437,7 +480,7 @@ class NineLivesPanel extends HTMLElement {
       <h2>${esc(t.previewTitle)}</h2>
       <h3>${esc(t.renames)}</h3><ul>${renames}</ul>
       <h3>${esc(t.deviceChanges)}</h3>
-      <ul><li>${esc(t.deviceArea)}</li><li>${esc(t.deviceDisable)}</li></ul>
+      <ul><li>${esc(t.deviceArea)}</li><li>${esc(plan.from_deleted ? t.deviceFromDeleted : t.deviceDisable)}</li></ul>
       <h3>${esc(t.refs)}</h3>
       ${changes.length ? list(changes, (c) => `<li>${esc(c.path)}</li>`) : `<p class="muted">${esc(t.noRefs)}</p>`}
       ${reviews.length ? `<h3 class="warn">${esc(t.reviews)}</h3>` + list(reviews, (r) => `<li>${esc(r.path)}: ${esc(r.reason)}</li>`) : ""}
@@ -453,7 +496,7 @@ class NineLivesPanel extends HTMLElement {
     const t = this._t;
     return `
       <p class="ok">${esc(t.done)}</p>
-      <p class="muted">${esc(t.removeHint)}</p>
+      ${this._state.plan?.from_deleted ? "" : `<p class="muted">${esc(t.removeHint)}</p>`}
       <div class="actions"><button id="again" class="primary">${esc(t.again)}</button></div>`;
   }
 
@@ -507,7 +550,13 @@ class NineLivesPanel extends HTMLElement {
           <summary><span><strong>${esc(b.old_device)} → ${esc(b.new_device)}</strong><br>
           <span class="muted">${esc(when(b.created))} · ${esc(t.entities)}: ${b.pairs.length}${
             b.undone ? ` · ${esc(t.undoneAt)} ${esc(when(b.undone))}` : ""
-          }${b.old_device_removed && !b.undone ? ` · ${esc(t.oldRemoved)}` : ""}</span></span>
+          }${
+            b.from_deleted
+              ? ` · ${esc(t.fromDeletedMark)}`
+              : b.old_device_removed && !b.undone
+                ? ` · ${esc(t.oldRemoved)}`
+                : ""
+          }</span></span>
           ${b.can_undo ? `<button data-undo="${esc(b.backup_id)}">${esc(t.undo)}</button>` : ""}</summary>
           ${this._renderSwapDetails(b)}</details></li>`
       )
@@ -562,6 +611,12 @@ class NineLivesPanel extends HTMLElement {
       this._render();
     });
     on("#next", "click", () => this._propose());
+    on("#mode", "click", (e) => {
+      e.preventDefault();
+      this._state.fromDeleted = !this._state.fromDeleted;
+      this._state.oldId = "";
+      this._render();
+    });
     on("#swap-sides", "click", () => {
       [this._state.oldId, this._state.newId] = [this._state.newId, this._state.oldId];
       this._render();
@@ -634,6 +689,7 @@ const STYLE = `
   button.small { padding: 4px 10px; font-size: 13px; }
   button.icon { border: 0; color: inherit; font-size: 20px; padding: 4px 8px; }
   .muted { color: var(--secondary-text-color); }
+  a { color: var(--primary-color); font-size: 14px; }
   .warn { color: var(--warning-color, #ff9800); }
   .error { color: var(--error-color, #db4437); }
   .ok { color: var(--success-color, #43a047); font-weight: 500; }
