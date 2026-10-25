@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- Devices removed at the same time (for example several lights removed in the
+  manufacturer's app at once) no longer share their entities: an entity belongs to a
+  removed device when its unique ID contains the device's identifier, as with Matter
+  devices. The time of removal is only used when there is no such hint.
+
 ## 1.2.0
 
 ### Added
