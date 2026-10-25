@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -605,3 +606,96 @@ async def test_devices_removed_together_keep_their_own_entities(
         "D8DE4CEB-0C-45-45-MatterLight-6-0",
     ]
     assert len(found[devices["0C-27"]].entities) == 2
+
+
+def test_identifiers_with_more_than_two_parts() -> None:
+    """Some integrations store identifiers as longer tuples."""
+    device = SimpleNamespace(
+        identifiers={
+            ("legacy", "bridge-1234", "light-5678"),
+            ("matter", "deviceid_ABC-0C-45"),
+        }
+    )
+
+    patterns = deleted._identifier_patterns(device)
+
+    assert any(p.search("light-5678-brightness") for p in patterns)
+    assert any(p.search("ABC-0C-45-45-MatterLight-6-0") for p in patterns)
+
+
+async def test_device_without_own_entities_takes_none_of_others(
+    hass: HomeAssistant,
+) -> None:
+    """A light whose entities were already taken over must not offer those of
+    another light removed in the same moment."""
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    bridge = MockConfigEntry(domain="matter")
+    bridge.add_to_hass(hass)
+    taken = dev_reg.async_get_or_create(
+        config_entry_id=bridge.entry_id,
+        identifiers={("matter", "deviceid_ABCDEF-0C-27")},
+    )
+    other = dev_reg.async_get_or_create(
+        config_entry_id=bridge.entry_id,
+        identifiers={("matter", "deviceid_ABCDEF-0C-45")},
+    )
+    ent_reg.async_get_or_create(
+        "light",
+        "matter",
+        "ABCDEF-0C-45-45-MatterLight",
+        config_entry=bridge,
+        device_id=other.id,
+    )
+    dev_reg.async_remove_device(taken.id)
+    dev_reg.async_remove_device(other.id)
+    await hass.async_block_till_done()
+
+    found = {d.id: d for d in deleted.removed_devices(hass)}
+
+    assert taken.id not in found
+    assert [e.unique_id for e in found[other.id].entities] == [
+        "ABCDEF-0C-45-45-MatterLight"
+    ]
+
+
+async def test_removed_entity_id_used_by_an_earlier_device_too(
+    hass: HomeAssistant,
+) -> None:
+    """Deleted entries can share an entity ID; the swap uses the removed device's."""
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    bridge = MockConfigEntry(domain="matter")
+    bridge.add_to_hass(hass)
+
+    def lamp(node: str, object_id: str = "dining"):
+        device = dev_reg.async_get_or_create(
+            config_entry_id=bridge.entry_id,
+            identifiers={("matter", f"deviceid_ABCDEF-0C-{node}")},
+        )
+        entry = ent_reg.async_get_or_create(
+            "light",
+            "matter",
+            f"ABCDEF-0C-{node}-{node}-MatterLight",
+            config_entry=bridge,
+            device_id=device.id,
+            suggested_object_id=object_id,
+        )
+        return device, entry
+
+    earlier, _ = lamp("11")
+    dev_reg.async_remove_device(earlier.id)
+    await hass.async_block_till_done()
+    removed, removed_light = lamp("22")
+    assert removed_light.entity_id == "light.dining"
+    dev_reg.async_remove_device(removed.id)
+    await hass.async_block_till_done()
+    new, new_light = lamp("33", "new_lamp")
+
+    plan = await async_plan(
+        hass, removed.id, new.id, [("light.dining", new_light.entity_id)]
+    )
+    await SwapManager(hass).async_apply(plan)
+
+    assert plan.id_map[removed_light.id] == new_light.id
+    assert ent_reg.async_get("light.dining").unique_id == "ABCDEF-0C-33-33-MatterLight"

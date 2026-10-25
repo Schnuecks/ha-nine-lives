@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- The list of removed devices no longer fails when an integration stores device
+  identifiers with more than two parts.
+- A removed device whose own entities were already taken over no longer offers the
+  entities of another device removed at the same time.
+- When several deleted entries share an entity ID (an earlier device used it too), the
+  removed device's own entry is used; the preview no longer refuses it.
+- Names and last values of removed entities are also found when the device was
+  unavailable for a while before it was removed.
+
+### Changed
+- The list of removed devices leaves out removals older than 30 days and software such
+  as AI assistants, update entries and repositories managed by HACS.
+- Pairing ignores numbers Home Assistant appended to an ID (`…_identify_2`).
+
 ## 1.2.1
 
 ### Fixed

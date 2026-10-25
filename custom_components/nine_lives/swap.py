@@ -226,8 +226,8 @@ async def async_plan(
     for old, new in pairs:
         new_entry = ent_reg.async_get(new)
         if from_deleted:
-            old_entry = deleted.deleted_entity(ent_reg, old)
-            if not removed or old_entry not in removed.entities:
+            old_entry = deleted.removed_entry(removed, old) if removed else None
+            if old_entry is None:
                 raise SwapError(f"{old} does not belong to the old device")
         else:
             old_entry = ent_reg.async_get(old)
@@ -584,7 +584,7 @@ class SwapManager:
             }
             old_area, old_labels = removed.area_id, set(removed.labels)
             old_snapshots = {
-                old: deleted.snapshot(deleted.deleted_entity(ent_reg, old))
+                old: deleted.snapshot(deleted.removed_entry(removed, old))
                 for old, _ in plan.pairs
             }
         else:

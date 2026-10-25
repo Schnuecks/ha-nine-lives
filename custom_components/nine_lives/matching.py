@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 
@@ -30,11 +31,16 @@ class Pairing:
     unmatched_new: list[EntityInfo] = field(default_factory=list)
 
 
+def _suffix(entity_id: str) -> str:
+    """The last word of the ID, without a number Home Assistant appended (…_2)."""
+    return re.sub(r"_\d+$", "", entity_id).rsplit("_", 1)[-1]
+
+
 def _score(old: EntityInfo, new: EntityInfo) -> int:
     """How well two entities fit; 0 means they must not be paired."""
     if old.domain != new.domain:
         return 0
-    same_suffix = old.entity_id.rsplit("_", 1)[-1] == new.entity_id.rsplit("_", 1)[-1]
+    same_suffix = _suffix(old.entity_id) == _suffix(new.entity_id)
     if old.device_class != new.device_class:
         # A temperature sensor never replaces a humidity sensor. If only one side has
         # a device class, the unit has to confirm the match (LQI is not illuminance),

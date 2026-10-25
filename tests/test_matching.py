@@ -73,3 +73,10 @@ def test_missing_device_class_prefers_matching_unit() -> None:
 
     assert result.pairs[0][1].entity_id == "sensor.new_power"
     assert [n.entity_id for n in result.unmatched_new] == ["sensor.new_energy"]
+
+
+def test_appended_numbers_do_not_hide_the_end_of_the_id() -> None:
+    old = [_e("button.plug_eu_identify_2")]
+    new = [_e("button.new_plug_identify", "identify")]
+
+    assert len(propose_pairs(old, new).pairs) == 1
