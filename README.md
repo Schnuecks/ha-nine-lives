@@ -45,7 +45,8 @@ step, shows everything first and can undo it.
 - **Preview and undo:** every change is listed before it happens, and recent swaps can be
   undone with one click.
 - **Tidier IDs on request:** an old ID that no longer matches its name can get a fitting
-  one, but only when nothing refers to it.
+  one. Automations, scripts, scenes, dashboards, helpers such as groups and the energy
+  dashboard are adjusted along; IDs used in YAML files or other integrations' settings stay.
 - **Safe by design:** YAML files such as packages are never edited, only listed. Device
   triggers that may not exist on the new device are flagged for review.
 

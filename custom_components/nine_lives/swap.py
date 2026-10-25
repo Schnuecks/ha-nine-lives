@@ -94,6 +94,8 @@ class Plan:
     new_ids: dict[str, str] = field(default_factory=dict)
     # The old device is already removed; the old entities are deleted registry entries.
     from_deleted: bool = False
+    # Helpers and the energy dashboard that use an entity whose ID changes.
+    settings: list[scan.SettingsPlan] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -120,6 +122,15 @@ class Plan:
                     "blocked": None,
                 }
                 for d in self.dashboards
+            ]
+            + [
+                {
+                    "kind": p.kind,
+                    "changes": [asdict(c) for c in p.changes],
+                    "reviews": [],
+                    "blocked": None,
+                }
+                for p in self.settings
             ],
             "reports": [asdict(r) for r in self.reports],
             "from_deleted": self.from_deleted,
@@ -142,9 +153,13 @@ def _plan_file(
     id_map: dict[str, str],
     entity_domains: dict[str, str],
     new_integrations: set[str],
+    renames: dict[str, str] | None = None,
 ) -> FilePlan:
     plan = FilePlan(kind, path, text)
-    if not any(old_id in text for old_id in id_map):
+    renames = renames or {}
+    if not any(old_id in text for old_id in id_map) and not any(
+        scan.is_referenced(old, [text]) for old in renames
+    ):
         return plan
     if _YAML_TAG.search(text):
         # A code the panel translates: the file uses !secret, !include and the like.
@@ -155,7 +170,7 @@ def _plan_file(
     items = data.items() if isinstance(data, dict) else enumerate(data or [])
     new_data: dict | list = {} if isinstance(data, dict) else []
     for key, item in items:
-        result = rewrite(item, id_map, entity_domains, new_integrations)
+        result = rewrite(item, id_map, entity_domains, new_integrations, renames)
         label = _item_label(kind, item, key)
         plan.changes += [
             Change(f"{label}: {c.path}", c.old, c.new) for c in result.changes
@@ -232,19 +247,23 @@ async def async_plan(
         if entry:
             new_integrations.add(entry.domain)
 
+    new_ids = await _async_check_new_ids(hass, olds, news, new_ids or {})
     files = []
     for kind, name in CONFIG_FILES.items():
         path = hass.config.path(name)
         text = await hass.async_add_executor_job(_read, path)
         if text is not None:
             files.append(
-                _plan_file(kind, path, text, id_map, entity_domains, new_integrations)
+                _plan_file(
+                    kind, path, text, id_map, entity_domains, new_integrations, new_ids
+                )
             )
     dashboards, reports = await scan.async_plan_dashboards(
-        hass, id_map, entity_domains, new_integrations
+        hass, id_map, entity_domains, new_integrations, new_ids
     )
     reports += await scan.async_yaml_reports(hass, id_map)
-    new_ids = await _async_check_new_ids(hass, olds, news, new_ids or {})
+    settings, setting_reports = await scan.async_plan_settings(hass, new_ids)
+    reports += setting_reports
     return Plan(
         old_device_id,
         new_device_id,
@@ -255,6 +274,7 @@ async def async_plan(
         reports,
         new_ids,
         from_deleted,
+        settings,
     )
 
 
@@ -266,7 +286,7 @@ async def _async_check_new_ids(
     if not new_ids:
         return {}
     ent_reg = er.async_get(hass)
-    corpus = await scan.async_reference_corpus(hass)
+    usage = await scan.async_entity_usage(hass, list(new_ids))
     targets = list(new_ids.values())
     for old, target in new_ids.items():
         if old not in olds:
@@ -278,17 +298,21 @@ async def _async_check_new_ids(
         taken = ent_reg.async_get(target) or hass.states.get(target)
         if taken and target not in news:
             raise SwapError(f"{target} is already taken")
-        if scan.is_referenced(old, corpus):
-            raise SwapError(f"{old} is in use, its ID cannot change")
+        # Places Nine Lives cannot adjust keep the ID from changing.
+        if blocked := usage[old][1]:
+            raise SwapError(
+                f"{old} is used in {', '.join(blocked)}, its ID cannot change there"
+            )
     return new_ids
 
 
 async def async_suggest_ids(
     hass: HomeAssistant, entity_ids: list[str]
-) -> dict[str, str]:
+) -> dict[str, dict[str, Any]]:
     """Tidier IDs for old entities whose ID no longer matches their name.
 
-    Only offered when nothing refers to the old ID and the tidier one is free.
+    Offered when the tidier ID is free and every place using the old ID can be
+    adjusted; used_in lists those places, so the panel can say what changes along.
     """
     ent_reg = er.async_get(hass)
     candidates = {}
@@ -300,11 +324,11 @@ async def async_suggest_ids(
             candidates[entity_id] = suggestion
     if not candidates:
         return {}
-    corpus = await scan.async_reference_corpus(hass)
+    usage = await scan.async_entity_usage(hass, list(candidates))
     return {
-        old: new
+        old: {"id": new, "used_in": usage[old][0]}
         for old, new in candidates.items()
-        if not scan.is_referenced(old, corpus)
+        if not usage[old][1]
     }
 
 
@@ -606,6 +630,10 @@ class SwapManager:
                 for f in plan.files
                 if f.new_text is not None
             },
+            "settings": [
+                {"kind": p.kind, "key": p.key, "text": p.original, "written": p.new}
+                for p in plan.settings
+            ],
         }
         self.history[backup_id] = _history_entry(self.backups[backup_id], plan)
         await self._async_save()
@@ -668,6 +696,8 @@ class SwapManager:
                 await scan.async_save_dashboard(
                     hass, dashboard.url_path, dashboard.new_config
                 )
+        for settings in plan.settings:
+            await scan.async_apply_settings(hass, settings)
         await self._async_add_corrections(handovers, backup_id, "swap")
         notice.async_swapped(
             hass,
@@ -795,12 +825,15 @@ class SwapManager:
         # then keep those edits and only have the device references turned back.
         texts = {}
         reverse_map = {new: old for old, new in backup["id_map"].items()}
+        reverse_renames = {new: old for old, new in backup.get("new_ids", {}).items()}
         for kind, f in backup["files"].items():
             current = await hass.async_add_executor_job(_read, f["path"])
             if current is None or current == f["written"]:
                 texts[kind] = (f["path"], f["text"])
                 continue
-            reverted = _plan_file(kind, f["path"], current, reverse_map, {}, set())
+            reverted = _plan_file(
+                kind, f["path"], current, reverse_map, {}, set(), reverse_renames
+            )
             if reverted.blocked:
                 notes.append(
                     f"{f['path']} uses YAML tags, turn its device references back"
@@ -817,8 +850,25 @@ class SwapManager:
             if config == dashboard["written"]:
                 restored = dashboard["text"]
             else:
-                restored = rewrite(config, reverse_map).config
+                restored = rewrite(
+                    config, reverse_map, entity_renames=reverse_renames
+                ).config
             await scan.async_save_dashboard(hass, dashboard["url_path"], restored)
+
+        for saved in backup.get("settings", []):
+            current = await scan.async_current_settings(
+                hass, saved["kind"], saved["key"]
+            )
+            if current is None:
+                continue
+            if current == saved["written"]:
+                restored = saved["text"]
+            else:
+                restored = rewrite(current, {}, entity_renames=reverse_renames).config
+            await scan.async_apply_settings(
+                hass,
+                scan.SettingsPlan(saved["kind"], saved["key"], "", current, restored),
+            )
 
         # The old meters take their sums back over from the new ones.
         if entry := self.history.get(backup_id):

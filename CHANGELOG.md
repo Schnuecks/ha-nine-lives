@@ -12,6 +12,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   entries Home Assistant keeps, found by the time they were removed together with the
   device. Their last name and value come from the history. Such swaps cannot be undone.
 
+- A tidier ID can now be chosen even when the old ID is in use: automations, scripts and
+  scenes (including templates), stored dashboards, helpers such as groups, utility meters
+  or template sensors, and the energy dashboard are adjusted along, and turned back on
+  undo. The option says where. IDs used in YAML files or the settings of other
+  integrations still stay.
+
 ### Changed
 - Pairing also looks at the end of the entity ID (`…_temperature`, `…_energy`).
 

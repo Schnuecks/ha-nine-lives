@@ -22,7 +22,7 @@ const STRINGS = {
     deviceChanges: "Devices",
     deviceArea: "The new device gets the area and labels of the old one.",
     deviceDisable: "The old device is disabled.",
-    refs: "Device references rewritten",
+    refs: "References rewritten",
     noRefs: "No automation, script, scene or dashboard refers to the old device.",
     reviews: "Please check afterwards",
     blocked: "Not changed",
@@ -32,6 +32,8 @@ const STRINGS = {
     reason_yaml_tags: "uses YAML tags such as !secret or !include",
     tidy: "New ID",
     tidyHint: "the old ID is not used anywhere",
+    tidyAlong: "references are adjusted along in",
+    reason_integration_settings: "settings of this integration use the old ID",
     apply: "Swap devices",
     confirm: "Swap the devices now? A backup is kept and the swap can be undone.",
     done: "Done. The new device now uses the old entity IDs.",
@@ -99,7 +101,7 @@ const STRINGS = {
     deviceChanges: "Geräte",
     deviceArea: "Das neue Gerät bekommt Bereich und Labels des alten.",
     deviceDisable: "Das alte Gerät wird deaktiviert.",
-    refs: "Umgeschriebene Geräte-Verweise",
+    refs: "Umgeschriebene Verweise",
     noRefs: "Keine Automation, kein Skript, keine Szene und kein Dashboard verweist auf das alte Gerät.",
     reviews: "Bitte danach prüfen",
     blocked: "Nicht geändert",
@@ -109,6 +111,8 @@ const STRINGS = {
     reason_yaml_tags: "nutzt YAML-Tags wie !secret oder !include",
     tidy: "Neue ID",
     tidyHint: "die alte ID wird nirgends verwendet",
+    tidyAlong: "Verweise werden mit angepasst in",
+    reason_integration_settings: "Einstellungen dieser Integration nutzen die alte ID",
     apply: "Geräte tauschen",
     confirm: "Geräte jetzt tauschen? Es wird eine Sicherung angelegt, der Tausch lässt sich rückgängig machen.",
     done: "Fertig. Das neue Gerät nutzt jetzt die alten Entity-IDs.",
@@ -265,6 +269,7 @@ class NineLivesPanel extends HTMLElement {
     this._state.newEntities = [...result.pairs.map((p) => p.new), ...result.unmatched_new];
     const tidy = result.suggested_ids || {};
     this._state.removedDetails = result.removed_details || {};
+    this._state.tidyUsage = result.suggested_usage || {};
     this._state.pairs = olds.map((old) => ({
       old,
       new: byOld[old] || "",
@@ -444,7 +449,11 @@ class NineLivesPanel extends HTMLElement {
         const tidy =
           p.tidy && p.new
             ? `<tr class="tidy"><td colspan="3"><label><input type="checkbox" data-tidy="${i}" ${p.useTidy ? "checked" : ""}>
-                ${esc(t.tidy)}: <code>${esc(p.tidy)}</code> <span class="muted">(${esc(t.tidyHint)})</span></label></td></tr>`
+                ${esc(t.tidy)}: <code>${esc(p.tidy)}</code> <span class="muted">(${esc(
+                  (s.tidyUsage?.[p.old] || []).length
+                    ? `${t.tidyAlong}: ${s.tidyUsage[p.old].join(", ")}`
+                    : t.tidyHint
+                )})</span></label></td></tr>`
             : "";
         const value = (id) =>
           id && this._stateText(id) ? `<div class="value">${esc(this._stateText(id))}</div>` : "";

@@ -59,11 +59,13 @@ to check that the right sensors are paired. You can change every pair or choose 
 New entities without a partner are listed below the table; they keep their own IDs.
 
 **New ID:** some old IDs no longer fit, for example after a device was renamed
-(`button.plug_anker_identify` on a plug that now powers a printer). If nothing in Home
-Assistant refers to such an ID, Nine Lives offers the ID Home Assistant would give the entity
-today. The option is ticked; untick it to keep the old ID. It is only offered when the old ID
-appears nowhere: not in automations, scripts, scenes, dashboards, YAML files, the energy
-dashboard or the settings of other integrations.
+(`button.plug_anker_identify` on a plug that now powers a printer). Nine Lives then offers the
+ID Home Assistant would give the entity today. The option is ticked; untick it to keep the
+old ID. Where the old ID is used, it is adjusted along and the option says where:
+automations, scripts and scenes (including templates), dashboards stored by Home Assistant,
+helpers such as groups, utility meters or template sensors, and the energy dashboard. If the
+old ID is used where Nine Lives does not edit (YAML packages and other YAML files, YAML
+dashboards, the settings of other integrations), the option is not offered.
 
 ### 3. Read the preview
 
@@ -71,8 +73,9 @@ The preview lists everything before it happens:
 
 - **Entity IDs taken over:** which new entity ends up under which ID.
 - **Devices:** what happens to the area, labels and the old device.
-- **Device references rewritten:** every place in automations, scripts, scenes and dashboards
-  where the old device's ID is replaced.
+- **References rewritten:** every place in automations, scripts, scenes and dashboards
+  where the old device's ID is replaced, and, with a new ID, every place in those, in
+  helpers and in the energy dashboard where the old entity ID is replaced.
 - **Please check afterwards:** device triggers, conditions and actions that may not exist on
   the new device (see [Remotes and buttons](#remotes-and-buttons)).
 - **Please adjust by hand:** places Nine Lives does not edit, such as YAML packages.

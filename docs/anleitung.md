@@ -65,11 +65,13 @@ ihre eigenen IDs.
 
 **Neue ID:** Manche alten IDs passen nicht mehr, etwa nachdem ein Gerät umbenannt wurde
 (`button.steckdose_anker_identifizieren` an einer Steckdose, die jetzt einen Drucker
-versorgt). Wenn in Home Assistant nichts auf so eine ID verweist, bietet Nine Lives die ID an,
-die Home Assistant der Entität heute geben würde. Der Haken ist gesetzt; nimm ihn heraus, um
-die alte ID zu behalten. Angeboten wird das nur, wenn die alte ID nirgends vorkommt: nicht in
-Automationen, Skripten, Szenen, Dashboards, YAML-Dateien, im Energie-Dashboard und nicht in
-den Einstellungen anderer Integrationen.
+versorgt). Nine Lives bietet dann die ID an, die Home Assistant der Entität
+heute geben würde. Der Haken ist gesetzt; nimm ihn heraus, um die alte ID zu behalten. Wo die
+alte ID verwendet wird, wird sie mit angepasst, und die Option sagt, wo: Automationen,
+Skripte und Szenen (auch in Templates), von Home Assistant gespeicherte Dashboards, Helfer
+wie Gruppen, Verbrauchszähler oder Template-Sensoren und das Energie-Dashboard. Steckt die
+alte ID dort, wo Nine Lives nichts bearbeitet (YAML-Pakete und andere YAML-Dateien,
+YAML-Dashboards, Einstellungen anderer Integrationen), wird die Option nicht angeboten.
 
 ### 3. Vorschau lesen
 
@@ -77,8 +79,9 @@ Die Vorschau zeigt alles, bevor es passiert:
 
 - **Übernommene Entity-IDs:** welche neue Entität unter welcher ID landet.
 - **Geräte:** was mit Bereich, Labels und dem alten Gerät geschieht.
-- **Umgeschriebene Geräte-Verweise:** jede Stelle in Automationen, Skripten, Szenen und
-  Dashboards, an der die ID des alten Geräts ersetzt wird.
+- **Umgeschriebene Verweise:** jede Stelle in Automationen, Skripten, Szenen und Dashboards,
+  an der die ID des alten Geräts ersetzt wird, und bei einer neuen ID jede Stelle dort, in
+  Helfern und im Energie-Dashboard, an der die alte Entity-ID ersetzt wird.
 - **Bitte danach prüfen:** Geräte-Trigger, -Bedingungen und -Aktionen, die es am neuen Gerät
   vielleicht nicht gibt (siehe [Fernbedienungen und Taster](#fernbedienungen-und-taster)).
 - **Bitte von Hand anpassen:** Stellen, die Nine Lives nicht bearbeitet, etwa YAML-Pakete.

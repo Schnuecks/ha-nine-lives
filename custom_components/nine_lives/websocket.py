@@ -118,13 +118,15 @@ async def ws_propose(
         e.entity_id for e in result.unmatched_old
     ]
     suggestions = await async_suggest_ids(hass, olds)
+    usage = {old: s["used_in"] for old, s in suggestions.items()}
     connection.send_result(
         msg["id"],
         {
             "pairs": [
                 {"old": o.entity_id, "new": n.entity_id} for o, n in result.pairs
             ],
-            "suggested_ids": suggestions,
+            "suggested_ids": {old: s["id"] for old, s in suggestions.items()},
+            "suggested_usage": usage,
             "removed_details": removed_details,
             "unmatched_old": [e.entity_id for e in result.unmatched_old],
             "unmatched_new": [e.entity_id for e in result.unmatched_new],
