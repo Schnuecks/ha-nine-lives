@@ -11,7 +11,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
   deleting it in the manufacturer's app: its entities are taken over from the deleted
   entries Home Assistant keeps, found by the time they were removed together with the
   device. Their last name and value come from the history. Such swaps cannot be undone.
-
 - A tidier ID can now be chosen even when the old ID is in use: automations, scripts and
   scenes (including templates), stored dashboards, helpers such as groups, utility meters
   or template sensors, and the energy dashboard are adjusted along, and turned back on
@@ -20,6 +19,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - Pairing also looks at the end of the entity ID (`…_temperature`, `…_energy`).
+- The preview heading "Device references rewritten" is now "References rewritten", as it
+  also lists entity IDs that change.
 
 ## 1.1.1
 
