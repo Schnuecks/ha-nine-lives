@@ -18,7 +18,7 @@ Thread/Matter oder wenn ein defektes Gerät gegen ein neues getauscht wird.
 **Neu hier?** Die [Anleitung](docs/anleitung.md) erklärt einen Tausch Schritt für Schritt
 und was genau dabei passiert.
 
-<p align="center"><img src="docs/screenshots/preview-de.png" width="720" alt="Vorschau eines Tauschs"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/preview-de-dark.png"><img src="docs/screenshots/preview-de.png" width="720" alt="Vorschau eines Tauschs"></picture></p>
 
 ## Warum
 
@@ -58,14 +58,14 @@ rückgängig machen.
    in Home Assistant sein, das neue Gerät also vorher koppeln.
 2. Die vorgeschlagene Zuordnung prüfen. Entitäten ohne Partner bleiben, wo sie sind.
 
-   <img src="docs/screenshots/pairs-de.png" width="640" alt="Zuordnung der Entitäten">
+   <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/pairs-de-dark.png"><img src="docs/screenshots/pairs-de.png" width="640" alt="Zuordnung der Entitäten"></picture>
 
 3. Die Vorschau zeigt jede übernommene Entity-ID und jede Stelle, die sich ändert oder um die
    du dich kümmern solltest.
 4. **Geräte tauschen.** Das alte Gerät wird deaktiviert, das neue bekommt seinen Bereich und
    seine Labels, und eine Benachrichtigung fasst zusammen, was noch zu tun ist.
 
-   <img src="docs/screenshots/done-de.png" width="640" alt="Tausch fertig, Zähler-Korrektur in Arbeit">
+   <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/done-de-dark.png"><img src="docs/screenshots/done-de.png" width="640" alt="Tausch fertig, Zähler-Korrektur in Arbeit"></picture>
 
 5. Wenn alles läuft, das alte Gerät aus seiner Integration entfernen.
 
