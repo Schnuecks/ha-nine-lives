@@ -46,7 +46,9 @@ rückgängig machen.
 - **Vorschau und Rückgängig:** Jede Änderung wird vorher aufgelistet, und die letzten Tausche
   lassen sich mit einem Klick rückgängig machen.
 - **Aufgeräumte IDs auf Wunsch:** Eine alte ID, die nicht mehr zum Namen passt, kann eine
-  passende bekommen – aber nur, wenn nichts auf sie verweist.
+  passende bekommen. Automationen, Skripte, Szenen, Dashboards, Helfer wie Gruppen und das
+  Energie-Dashboard werden mit angepasst; IDs, die in YAML-Dateien oder Einstellungen anderer
+  Integrationen stecken, bleiben.
 - **Sicher gebaut:** YAML-Dateien wie Pakete werden nie bearbeitet, nur aufgelistet.
   Geräte-Trigger, die es am neuen Gerät vielleicht nicht gibt, werden zur Prüfung markiert.
 

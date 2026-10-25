@@ -7,6 +7,7 @@ its entities, which device triggers, conditions and actions use.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -43,6 +44,7 @@ def rewrite(
     id_map: dict[str, str],
     entity_domains: dict[str, str] | None = None,
     new_integrations: set[str] | None = None,
+    entity_renames: dict[str, str] | None = None,
 ) -> RewriteResult:
     """Return a copy of config with every ID in id_map replaced.
 
@@ -51,8 +53,23 @@ def rewrite(
     bound to an entity of the same domain are expected to work on the new device,
     and so are those of new_integrations (the integrations of the new device); all
     others are reported for review.
+
+    entity_renames maps old entity IDs to new ones (tidier IDs the user chose). They are
+    replaced wherever they appear as a whole ID: values, templates such as
+    states('sensor.x') or states.sensor.x, and keys (scenes list entities as keys).
     """
     entity_domains = entity_domains or {}
+    renames = entity_renames or {}
+    patterns = [
+        (re.compile(rf"(?<!\w){re.escape(old)}(?!\w)"), old, new)
+        for old, new in renames.items()
+    ]
+
+    def rename(text: str) -> str:
+        for pattern, _, new in patterns:
+            text = pattern.sub(new, text)
+        return text
+
     new_integrations = new_integrations or set()
     changes: list[Change] = []
     reviews: list[Review] = []
@@ -62,11 +79,20 @@ def rewrite(
             if node in id_map:
                 changes.append(Change(path, node, id_map[node]))
                 return id_map[node]
+            if patterns and (renamed := rename(node)) != node:
+                changes.append(Change(path, node, renamed))
+                return renamed
             return node
         if isinstance(node, list):
             return [walk(item, f"{path}[{i}]") for i, item in enumerate(node)]
         if isinstance(node, dict):
-            result = {k: walk(v, f"{path}.{k}" if path else k) for k, v in node.items()}
+            result = {}
+            for key, value in node.items():
+                child = f"{path}.{key}" if path else str(key)
+                new_key = renames.get(key, key) if isinstance(key, str) else key
+                if new_key != key:
+                    changes.append(Change(child, key, new_key))
+                result[new_key] = walk(value, child)
             if node.keys() >= _DEVICE_AUTOMATION_KEYS and node["device_id"] in id_map:
                 domain = node["domain"]
                 entity = result.get("entity_id")
