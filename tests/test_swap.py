@@ -566,3 +566,42 @@ async def test_removed_device_entities_must_be_free(hass: HomeAssistant, setup) 
             setup["new_dev"].id,
             [(OLD_TEMP, "sensor.ikea_temperature"), (OLD_BATTERY, OLD_BATTERY)],
         )
+
+
+async def test_devices_removed_together_keep_their_own_entities(
+    hass: HomeAssistant,
+) -> None:
+    """Two lights removed at once: unique IDs that contain the device identifier
+    tell which entities belong to which device."""
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    bridge = MockConfigEntry(domain="matter")
+    bridge.add_to_hass(hass)
+    devices = {}
+    for node in ("0C-45", "0C-27"):
+        device = dev_reg.async_get_or_create(
+            config_entry_id=bridge.entry_id,
+            identifiers={("matter", f"deviceid_D8DE4CEB-{node}")},
+        )
+        devices[node] = device.id
+        for kind in ("MatterLight-6-0", "IdentifyButton-3-1"):
+            domain = "light" if "Light" in kind else "button"
+            ent_reg.async_get_or_create(
+                domain,
+                "matter",
+                f"D8DE4CEB-{node}-{node[-2:]}-{kind}",
+                config_entry=bridge,
+                device_id=device.id,
+            )
+    for device_id in devices.values():
+        dev_reg.async_remove_device(device_id)
+    await hass.async_block_till_done()
+
+    found = {d.id: d for d in deleted.removed_devices(hass)}
+
+    first = found[devices["0C-45"]]
+    assert sorted(e.unique_id for e in first.entities) == [
+        "D8DE4CEB-0C-45-45-IdentifyButton-3-1",
+        "D8DE4CEB-0C-45-45-MatterLight-6-0",
+    ]
+    assert len(found[devices["0C-27"]].entities) == 2

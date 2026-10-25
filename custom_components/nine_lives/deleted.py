@@ -12,6 +12,7 @@ are found by their integration and the time they were removed.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -63,13 +64,39 @@ def _name(
     return ", ".join(names[:3]) + (" …" if len(names) > 3 else "")
 
 
+def _identifier_patterns(device: dr.DeletedDeviceEntry) -> list[re.Pattern[str]]:
+    """Patterns for the device's identifiers as they appear in its entities' unique IDs.
+
+    Many integrations build unique IDs from the device identifier: Matter's
+    "deviceid_ABC-0C-45" turns up as "ABC-0C-45-45-MatterLight-6-0".
+    """
+    tokens = set()
+    for _, value in device.identifiers:
+        value = str(value)
+        tokens.add(value)
+        prefix, _, rest = value.partition("_")
+        if rest and prefix.isalpha():
+            tokens.add(rest)
+    return [
+        re.compile(rf"(?<![A-Za-z0-9]){re.escape(t)}(?![A-Za-z0-9])")
+        for t in tokens
+        if len(t) >= 6
+    ]
+
+
 def removed_devices(hass: HomeAssistant) -> list[RemovedDevice]:
-    """Removed devices whose entities can still be taken over, most recent first."""
+    """Removed devices whose entities can still be taken over, most recent first.
+
+    An entity belongs to a removed device when its unique ID contains one of the
+    device's identifiers. Without such a hint, entities of the same integration that
+    were removed in the same moment as the device count; if several devices were
+    removed together, that is only a guess, so the hint wins whenever it exists.
+    """
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
     result = []
     for device in dev_reg.deleted_devices.values():
-        entities = [
+        candidates = [
             e
             for e in ent_reg.deleted_entities.values()
             if e.config_entry_id == device.config_entry_id
@@ -78,6 +105,11 @@ def removed_devices(hass: HomeAssistant) -> list[RemovedDevice]:
             and not ent_reg.async_get(e.entity_id)
             and hass.states.get(e.entity_id) is None
         ]
+        patterns = _identifier_patterns(device)
+        matched = [
+            e for e in candidates if any(p.search(e.unique_id) for p in patterns)
+        ]
+        entities = matched or candidates
         if not entities:
             continue
         result.append(
