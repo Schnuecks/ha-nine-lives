@@ -15,6 +15,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   removed device's own entry is used; the preview no longer refuses it.
 - Names and last values of removed entities are also found when the device was
   unavailable for a while before it was removed.
+- No more warnings in the log about deprecated device registry access (the device list
+  and the list of removed devices). If a future Home Assistant no longer keeps removed
+  devices, that option is hidden instead of failing.
 
 ### Changed
 - The list of removed devices leaves out removals older than 30 days and software such

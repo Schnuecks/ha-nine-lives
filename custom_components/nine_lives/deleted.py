@@ -82,6 +82,27 @@ def _identifier_patterns(device: dr.DeletedDeviceEntry) -> list[re.Pattern[str]]
     ]
 
 
+def _deleted_device_entries(
+    dev_reg: dr.DeviceRegistry,
+) -> list[dr.DeletedDeviceEntry] | None:
+    """Removed devices, or None when this Home Assistant does not keep them.
+
+    Home Assistant has no public way to read removed devices; its deprecated
+    `deleted_devices` property is due to go in 2027.9 and logs a warning. The
+    container behind it is read directly, and if it is gone, swaps from removed
+    devices are simply not offered.
+    """
+    items = getattr(dev_reg, "_deleted_devices", None)
+    try:
+        return list(items.values()) if items is not None else None
+    except AttributeError:
+        return None
+
+
+def supported(hass: HomeAssistant) -> bool:
+    return _deleted_device_entries(dr.async_get(hass)) is not None
+
+
 def removed_devices(hass: HomeAssistant) -> list[RemovedDevice]:
     """Removed devices whose entities can still be taken over, most recent first.
 
@@ -92,7 +113,7 @@ def removed_devices(hass: HomeAssistant) -> list[RemovedDevice]:
     """
     dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
-    devices = list(dev_reg.deleted_devices.values())
+    devices = _deleted_device_entries(dev_reg) or []
     patterns = {device.id: _identifier_patterns(device) for device in devices}
 
     # Which removed devices each deleted entity's unique ID points to (checked once).
