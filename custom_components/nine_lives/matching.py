@@ -34,12 +34,18 @@ def _score(old: EntityInfo, new: EntityInfo) -> int:
     """How well two entities fit; 0 means they must not be paired."""
     if old.domain != new.domain:
         return 0
+    same_suffix = old.entity_id.rsplit("_", 1)[-1] == new.entity_id.rsplit("_", 1)[-1]
     if old.device_class != new.device_class:
         # A temperature sensor never replaces a humidity sensor. If only one side has
-        # a device class, the unit has to confirm the match (LQI is not illuminance).
+        # a device class, the unit has to confirm the match (LQI is not illuminance),
+        # or, when the unit is unknown too, the end of the ID.
         if old.device_class and new.device_class:
             return 0
-        if old.unit is None or old.unit != new.unit:
+        if old.unit is None and new.unit is not None and not same_suffix:
+            return 0
+        if old.unit is not None and old.unit != new.unit:
+            return 0
+        if old.unit is None and new.unit is None and not same_suffix:
             return 0
     score = 1
     if old.device_class and old.device_class == new.device_class:
@@ -50,6 +56,9 @@ def _score(old: EntityInfo, new: EntityInfo) -> int:
         score += 1
     if old.name and new.name and old.name.casefold() == new.name.casefold():
         score += 1
+    # The end of the ID usually names the measurement: …_temperature, …_energy.
+    if same_suffix:
+        score += 2
     return score
 
 

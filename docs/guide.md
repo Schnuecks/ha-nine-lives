@@ -17,8 +17,9 @@ overview and the installation see the [README](../README.md).
 
 1. **Pair the new device** with its integration as usual. Its name and entity IDs do not
    matter, they are replaced in the swap.
-2. **Leave the old device in Home Assistant.** Nine Lives can only pick devices that Home
-   Assistant still knows. Do not delete it from its integration before the swap.
+2. **Ideally leave the old device in Home Assistant** until the swap is done; then the swap
+   can be undone. If it is already gone, for example because you deleted it in the
+   manufacturer's app first, see [Old device already removed](#old-device-already-removed).
 3. **Unplugged or broken is fine.** The old device may already be unavailable. For meters
    Nine Lives then uses the last reading the statistics recorded.
 4. **A backup does not hurt.** Nine Lives keeps its own backup for undo, but a Home Assistant
@@ -197,6 +198,20 @@ Assistant.
 Leave it to Nine Lives: switch, power, current and energy are paired, and the energy
 dashboard continues without a jump. If the new plug measures more (for example voltage),
 those entities simply stay with their own IDs.
+
+### Old device already removed
+
+A common order: the old device is deleted in the manufacturer's app or bridge first, which
+removes it from Home Assistant as well. Home Assistant still keeps its entities as deleted
+entries, with their entity IDs and settings. Below the list of old devices, choose **Old
+device no longer in the list? Take over from removed entries**. The list then shows removed
+devices whose entities can still be taken over, with the time they were removed. Nine Lives
+recognises the entities by the moment they were removed together with their device, and
+shows their last name and value from the history.
+
+Everything else works as usual: the new entities take over the IDs and settings, device
+references are rewritten and meter sums continue (based on the last compiled reading). Such
+a swap cannot be undone, because the old device cannot come back.
 
 ### Remotes and buttons
 

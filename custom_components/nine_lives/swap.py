@@ -37,7 +37,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.file import write_utf8_file_atomic
 from homeassistant.util.yaml import dump, parse_yaml
 
-from . import energy, notice, scan
+from . import deleted, energy, notice, scan
 from .const import DOMAIN
 from .references import Change, Review, rewrite
 
@@ -92,6 +92,8 @@ class Plan:
     reports: list[scan.Report] = field(default_factory=list)
     # Tidier IDs the user chose: old entity ID -> ID the new entity ends up with.
     new_ids: dict[str, str] = field(default_factory=dict)
+    # The old device is already removed; the old entities are deleted registry entries.
+    from_deleted: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -120,6 +122,7 @@ class Plan:
                 for d in self.dashboards
             ],
             "reports": [asdict(r) for r in self.reports],
+            "from_deleted": self.from_deleted,
         }
 
 
@@ -190,7 +193,10 @@ async def async_plan(
     ent_reg = er.async_get(hass)
     if old_device_id == new_device_id:
         raise SwapError("Old and new device are the same")
-    if not dev_reg.async_get(old_device_id) or not dev_reg.async_get(new_device_id):
+    from_deleted = dev_reg.async_get(old_device_id) is None
+    if from_deleted and old_device_id not in dev_reg.deleted_devices:
+        raise SwapError("Device not found")
+    if not dev_reg.async_get(new_device_id):
         raise SwapError("Device not found")
     if not pairs:
         raise SwapError("No entities to swap")
@@ -201,11 +207,17 @@ async def async_plan(
 
     id_map = {old_device_id: new_device_id}
     entity_domains: dict[str, str] = {}
+    removed = deleted.removed_device(hass, old_device_id) if from_deleted else None
     for old, new in pairs:
-        old_entry = ent_reg.async_get(old)
         new_entry = ent_reg.async_get(new)
-        if not old_entry or old_entry.device_id != old_device_id:
-            raise SwapError(f"{old} does not belong to the old device")
+        if from_deleted:
+            old_entry = deleted.deleted_entity(ent_reg, old)
+            if not removed or old_entry not in removed.entities:
+                raise SwapError(f"{old} does not belong to the old device")
+        else:
+            old_entry = ent_reg.async_get(old)
+            if not old_entry or old_entry.device_id != old_device_id:
+                raise SwapError(f"{old} does not belong to the old device")
         if not new_entry or new_entry.device_id != new_device_id:
             raise SwapError(f"{new} does not belong to the new device")
         if old_entry.domain != new_entry.domain:
@@ -242,6 +254,7 @@ async def async_plan(
         dashboards,
         reports,
         new_ids,
+        from_deleted,
     )
 
 
@@ -329,18 +342,18 @@ def _restore_customizations(
 
 
 def _copy_customizations(
-    ent_reg: er.EntityRegistry, old: er.RegistryEntry, new_entity_id: str
+    ent_reg: er.EntityRegistry, old: dict[str, Any], new_entity_id: str
 ) -> None:
-    """Give the new entity what the user set on the old one."""
+    """Give the new entity what the user set on the old one (a snapshot of it)."""
     ent_reg.async_update_entity(
         new_entity_id,
-        name=old.name,
-        icon=old.icon,
-        area_id=old.area_id,
-        labels=set(old.labels),
-        aliases=list(old.aliases),
+        name=old["name"],
+        icon=old["icon"],
+        area_id=old["area_id"],
+        labels=set(old["labels"]),
+        aliases=[er.COMPUTED_NAME if a is None else a for a in old["aliases"]],
     )
-    for domain, options in old.options.items():
+    for domain, options in old["options"].items():
         ent_reg.async_update_entity_options(new_entity_id, domain, dict(options))
 
 
@@ -424,6 +437,7 @@ def _history_entry(backup: dict[str, Any], plan: Plan | None = None) -> dict[str
         "corrections": [],
         "undone": None,
         "notes": [],
+        "from_deleted": bool(backup["old_device"].get("removed")),
     }
     if plan is not None:
         details = plan.as_dict()
@@ -532,19 +546,41 @@ class SwapManager:
         hass = self.hass
         ent_reg = er.async_get(hass)
         dev_reg = dr.async_get(hass)
-        old_device = dev_reg.async_get(plan.old_device_id)
         new_device = dev_reg.async_get(plan.new_device_id)
-        if old_device is None or new_device is None:
-            raise SwapError("Device not found")
+        if plan.from_deleted:
+            removed = deleted.removed_device(hass, plan.old_device_id)
+            old_device = None
+            if removed is None or new_device is None:
+                raise SwapError("Device not found")
+            old_info = {
+                "id": removed.id,
+                "name": removed.name,
+                "disabled_by": None,
+                "removed": True,
+            }
+            old_area, old_labels = removed.area_id, set(removed.labels)
+            old_snapshots = {
+                old: deleted.snapshot(deleted.deleted_entity(ent_reg, old))
+                for old, _ in plan.pairs
+            }
+        else:
+            old_device = dev_reg.async_get(plan.old_device_id)
+            if old_device is None or new_device is None:
+                raise SwapError("Device not found")
+            old_info = {
+                "id": old_device.id,
+                "name": old_device.name_by_user or old_device.name,
+                "disabled_by": old_device.disabled_by,
+            }
+            old_area, old_labels = old_device.area_id, set(old_device.labels)
+            old_snapshots = {
+                old: _entity_snapshot(ent_reg.async_get(old)) for old, _ in plan.pairs
+            }
 
         backup_id = uuid.uuid4().hex
         self.backups[backup_id] = {
             "created": dt_util.utcnow().isoformat(),
-            "old_device": {
-                "id": old_device.id,
-                "name": old_device.name_by_user or old_device.name,
-                "disabled_by": old_device.disabled_by,
-            },
+            "old_device": old_info,
             "new_device": {
                 "id": new_device.id,
                 "name": new_device.name_by_user or new_device.name,
@@ -553,7 +589,7 @@ class SwapManager:
             },
             "pairs": [
                 {
-                    "old": _entity_snapshot(ent_reg.async_get(old)),
+                    "old": old_snapshots[old],
                     "new": _entity_snapshot(ent_reg.async_get(new)),
                 }
                 for old, new in plan.pairs
@@ -580,10 +616,17 @@ class SwapManager:
         for old_id, new_id in plan.pairs:
             before = hass.states.get(old_id)
             if energy.state_value(before) is None:
-                capabilities = ent_reg.async_get(old_id).capabilities or {}
-                before = await energy.async_last_known_state(
-                    hass, old_id, capabilities.get("state_class")
+                # A removed entity keeps no capabilities; its successor has the same.
+                live = ent_reg.async_get(old_id)
+                after = hass.states.get(new_id)
+                state_class = (
+                    (live.capabilities or {}).get("state_class")
+                    if live
+                    else after.attributes.get("state_class")
+                    if after
+                    else None
                 )
+                before = await energy.async_last_known_state(hass, old_id, state_class)
             handovers.append(
                 (plan.new_ids.get(old_id, old_id), before, hass.states.get(new_id))
             )
@@ -593,9 +636,9 @@ class SwapManager:
             _hide_expected_recorder_messages(hass, {(n, o) for o, n in plan.pairs})
         )
         for old_id, new_id in plan.pairs:
-            old_entry = ent_reg.async_get(old_id)
-            _copy_customizations(ent_reg, old_entry, new_id)
-            ent_reg.async_remove(old_id)
+            _copy_customizations(ent_reg, old_snapshots[old_id], new_id)
+            if not plan.from_deleted:
+                ent_reg.async_remove(old_id)
             _free_entity_id(hass, old_id)
             _free_entity_id(hass, new_id)
             ent_reg.async_update_entity(new_id, new_entity_id=old_id)
@@ -608,10 +651,10 @@ class SwapManager:
         # Devices: area and labels to the new one, the old one is switched off.
         dev_reg.async_update_device(
             new_device.id,
-            area_id=new_device.area_id or old_device.area_id,
-            labels=set(new_device.labels) | set(old_device.labels),
+            area_id=new_device.area_id or old_area,
+            labels=set(new_device.labels) | old_labels,
         )
-        if old_device.disabled_by is None:
+        if old_device is not None and old_device.disabled_by is None:
             dev_reg.async_update_device(
                 old_device.id, disabled_by=dr.DeviceEntryDisabler.USER
             )
@@ -629,7 +672,7 @@ class SwapManager:
         notice.async_swapped(
             hass,
             backup_id,
-            old_device.name_by_user or old_device.name or old_device.id,
+            old_info["name"] or old_info["id"],
             new_device.name_by_user or new_device.name or new_device.id,
             len(plan.pairs),
             [r.where for r in plan.reports] + [f.path for f in plan.files if f.blocked],

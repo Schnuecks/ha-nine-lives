@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+- Swaps from a device that is already removed from Home Assistant, for example after
+  deleting it in the manufacturer's app: its entities are taken over from the deleted
+  entries Home Assistant keeps, found by the time they were removed together with the
+  device. Their last name and value come from the history. Such swaps cannot be undone.
+
+### Changed
+- Pairing also looks at the end of the entity ID (`…_temperature`, `…_energy`).
+
 ## 1.1.1
 
 ### Changed

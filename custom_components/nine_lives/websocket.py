@@ -12,7 +12,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integration
 
-from . import energy
+from . import deleted, energy
 from .const import DOMAIN
 from .matching import EntityInfo, propose_pairs
 from .swap import SwapError, SwapManager, async_plan, async_suggest_ids
@@ -38,6 +38,7 @@ _PAIRS = {
 def async_register(hass: HomeAssistant) -> None:
     for command in (
         ws_devices,
+        ws_removed_devices,
         ws_propose,
         ws_preview,
         ws_apply,
@@ -93,10 +94,26 @@ async def ws_propose(
     Old IDs that no longer match their name and are not used anywhere come with a
     suggested tidier ID.
     """
-    result = propose_pairs(
-        _entity_infos(hass, msg["old_device_id"]),
-        _entity_infos(hass, msg["new_device_id"]),
-    )
+    removed = deleted.removed_device(hass, msg["old_device_id"])
+    removed_details: dict[str, dict[str, Any]] = {}
+    if removed is not None:
+        last = await deleted.async_last_states(
+            hass, [e.entity_id for e in removed.entities]
+        )
+        old_infos = deleted.entity_infos(removed, last)
+        # The panel cannot see removed entities; it shows their last name and value.
+        for info in old_infos:
+            state = last.get(info.entity_id)
+            unit = state.attributes.get("unit_of_measurement") if state else None
+            removed_details[info.entity_id] = {
+                "name": info.name,
+                "value": f"{state.state} {unit}"
+                if state and unit
+                else (state.state if state else None),
+            }
+    else:
+        old_infos = _entity_infos(hass, msg["old_device_id"])
+    result = propose_pairs(old_infos, _entity_infos(hass, msg["new_device_id"]))
     olds = [o.entity_id for o, _ in result.pairs] + [
         e.entity_id for e in result.unmatched_old
     ]
@@ -108,6 +125,7 @@ async def ws_propose(
                 {"old": o.entity_id, "new": n.entity_id} for o, n in result.pairs
             ],
             "suggested_ids": suggestions,
+            "removed_details": removed_details,
             "unmatched_old": [e.entity_id for e in result.unmatched_old],
             "unmatched_new": [e.entity_id for e in result.unmatched_new],
         },
@@ -267,3 +285,25 @@ def ws_devices(
             }
         )
     connection.send_result(msg["id"], devices)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "nine_lives/removed_devices"})
+@websocket_api.require_admin
+@callback
+def ws_removed_devices(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Devices already removed from Home Assistant whose entities can be taken over."""
+    connection.send_result(
+        msg["id"],
+        [
+            {
+                "id": d.id,
+                "name": d.name,
+                "removed_at": d.removed_at,
+                "area_id": d.area_id,
+                "entities": [e.entity_id for e in d.entities],
+            }
+            for d in deleted.removed_devices(hass)
+        ],
+    )
