@@ -18,7 +18,7 @@ when a broken device is swapped for a new one.
 **New here?** The [guide](https://github.com/Schnuecks/ha-nine-lives/blob/main/docs/guide.md) explains a swap step by step and what exactly
 happens behind it.
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/preview-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/preview.png" width="720" alt="Preview of a swap"></picture></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/preview.png" width="720" alt="Preview of a swap"></p>
 
 ## Why
 
@@ -56,14 +56,14 @@ step, shows everything first and can undo it.
    Home Assistant, so pair the new device first.
 2. Check the proposed pairs. Entities without a partner stay where they are.
 
-   <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs.png" width="640" alt="Entity pairs"></picture>
+   <img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs.png" width="640" alt="Entity pairs">
 
 3. The preview lists every entity ID that is taken over and every place that changes or
    needs your attention.
 4. **Swap devices.** The old device is disabled, the new one gets its area and labels, and a
    notification sums up what is left to do.
 
-   <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/done-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/done.png" width="640" alt="Swap done, meter correction pending"></picture>
+   <img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/done.png" width="640" alt="Swap done, meter correction pending">
 
 5. Once everything works, remove the old device from its integration.
 
