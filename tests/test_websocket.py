@@ -164,7 +164,8 @@ async def test_compare_reads_removed_devices(
         }
     )
     result = (await client.receive_json())["result"]
-    assert {"domain": "sensor", "device_class": "temperature"} in result["old"]
+    # Removed entries keep no device class of their own; it comes from the last state.
+    assert result["old"] == [{"domain": "sensor", "device_class": None}]
     assert result["compatible"] is True
 
 
