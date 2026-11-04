@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+- The device selection shows what each device is for. Devices without a common main
+  function get a clear warning and need a confirmation before you can continue.
+- Entity pairs that do not fit are marked and need a confirmation in the preview.
+- A note to create a backup first, and that using Nine Lives is at your own risk.
+
 ## 1.2.4
 
 ### Fixed

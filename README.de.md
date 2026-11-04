@@ -69,6 +69,10 @@ rückgängig machen.
 
 5. Wenn alles läuft, das alte Gerät aus seiner Integration entfernen.
 
+**⚠ Erstelle vor einem Tausch ein Home-Assistant-Backup.** Das Rückgängig deckt nur ab, was
+Nine Lives ändert. Nine Lives wird ohne Gewähr und Haftung bereitgestellt, wie in der
+[MIT-Lizenz](https://github.com/Schnuecks/ha-nine-lives/blob/main/LICENSE) festgelegt. Die Nutzung erfolgt auf eigene Gefahr.
+
 ## Installation
 
 Nine Lives braucht Home Assistant 2026.10 oder neuer.

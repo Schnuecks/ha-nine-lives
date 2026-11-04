@@ -6,6 +6,26 @@ const STRINGS = {
     intro:
       "Replace a device with another one. The new entities take over the entity IDs, " +
       "settings and history of the old ones, so automations and dashboards keep working.",
+    domains: {
+      binary_sensor: "Binary sensor", camera: "Camera", climate: "Climate", cover: "Cover",
+      event: "Button or remote", fan: "Fan", light: "Light", lock: "Lock",
+      media_player: "Media player", sensor: "Sensor", switch: "Switch", vacuum: "Vacuum",
+    },
+    functionLabel: "Main function",
+    functionNone: "none, only diagnostics and settings",
+    mismatchTitle: "These devices have no main function in common",
+    mismatchText:
+      "Nine Lives is meant for replacing a device with one of the same kind. With a different " +
+      "kind, the new device takes over IDs and history that do not fit, and automations act on " +
+      "wrong values.",
+    mismatchAck: "I know what I am doing and want to continue anyway",
+    pairUnfit: "Does not fit: automations and history would get wrong values.",
+    unfitTitle: "These pairs do not fit",
+    unfitText: "The new entities take over IDs and history of a different kind of value.",
+    backupNote:
+      "Create a Home Assistant backup first. The undo here only covers what Nine Lives changes. " +
+      "Use at your own risk, without warranty or liability (see the license).",
+    backupLink: "Open backups",
     oldDevice: "Old device",
     newDevice: "New device",
     choose: "Choose a device…",
@@ -85,6 +105,26 @@ const STRINGS = {
     intro:
       "Ein Gerät durch ein anderes ersetzen. Die neuen Entitäten übernehmen Entity-IDs, " +
       "Einstellungen und Verlauf der alten, Automationen und Dashboards laufen weiter.",
+    domains: {
+      binary_sensor: "Binärsensor", camera: "Kamera", climate: "Heizung/Klima", cover: "Abdeckung",
+      event: "Taster oder Fernbedienung", fan: "Lüfter", light: "Licht", lock: "Schloss",
+      media_player: "Mediaplayer", sensor: "Sensor", switch: "Schalter", vacuum: "Staubsauger",
+    },
+    functionLabel: "Hauptfunktion",
+    functionNone: "keine, nur Diagnose und Einstellungen",
+    mismatchTitle: "Diese Geräte haben keine gemeinsame Hauptfunktion",
+    mismatchText:
+      "Nine Lives ist für den Ersatz eines Geräts durch ein gleichartiges gedacht. Bei einem " +
+      "anderen Gerätetyp übernimmt das neue Gerät IDs und Verlauf, die nicht passen, und " +
+      "Automationen reagieren auf falsche Werte.",
+    mismatchAck: "Ich weiß, was ich tue, und möchte trotzdem weitermachen",
+    pairUnfit: "Passt nicht: Automationen und Verlauf bekämen falsche Werte.",
+    unfitTitle: "Diese Paare passen nicht zusammen",
+    unfitText: "Die neuen Entitäten übernehmen IDs und Verlauf einer anderen Art von Wert.",
+    backupNote:
+      "Erstelle vorher ein Home-Assistant-Backup. Das Rückgängig hier deckt nur ab, was Nine Lives " +
+      "ändert. Nutzung auf eigene Gefahr, ohne Gewähr und Haftung (siehe Lizenz).",
+    backupLink: "Backups öffnen",
     oldDevice: "Altes Gerät",
     newDevice: "Neues Gerät",
     choose: "Gerät auswählen …",
@@ -262,6 +302,57 @@ class NineLivesPanel extends HTMLElement {
       .map((p) => ({ old: p.old, new: p.new, new_entity_id: p.useTidy ? p.tidy : null }));
   }
 
+  // What the chosen devices are for. A later answer replaces an earlier one only if
+  // the selection is still the same.
+  async _compare() {
+    const s = this._state;
+    s.ack = false;
+    s.compare = null;
+    this._render();
+    if (!s.oldId && !s.newId) return;
+    const key = `${s.oldId}|${s.newId}`;
+    const result = await this._call({
+      type: "nine_lives/compare",
+      ...(s.oldId ? { old_device_id: s.oldId } : {}),
+      ...(s.newId ? { new_device_id: s.newId } : {}),
+    });
+    if (key !== `${s.oldId}|${s.newId}`) return;
+    s.compare = result;
+    this._render();
+  }
+
+  _functionText(functions) {
+    const hass = this._hass;
+    const label = ({ domain, device_class: cls }) =>
+      (cls && hass.localize?.(`component.${domain}.entity_component.${cls}.name`)) ||
+      (!cls && (this._t.domains[domain] || hass.localize?.(`component.${domain}.title`))) ||
+      (cls || domain).replaceAll("_", " ");
+    return functions.length ? [...new Set(functions.map(label))].join(", ") : this._t.functionNone;
+  }
+
+  _functionLine(functions) {
+    if (!functions) return "";
+    return `<p class="function"><strong>${esc(this._t.functionLabel)}:</strong> ${esc(this._functionText(functions))}</p>`;
+  }
+
+  _mismatch() {
+    return this._state.compare?.compatible === false;
+  }
+
+  _unfitPairs() {
+    const s = this._state;
+    return s.pairs.filter((p) => p.new && !(s.fits?.[p.old] || []).includes(p.new));
+  }
+
+  _danger(title, text, extra = "") {
+    return `<div class="danger" role="alert"><strong>⚠ ${esc(title)}</strong><p>${esc(text)}</p>${extra}</div>`;
+  }
+
+  _backupNote() {
+    const t = this._t;
+    return `<p class="note">${esc(t.backupNote)} <a href="/config/backup">${esc(t.backupLink)}</a></p>`;
+  }
+
   async _propose() {
     const result = await this._call({ type: "nine_lives/propose", ...this._ids() });
     const byOld = Object.fromEntries(result.pairs.map((p) => [p.old, p.new]));
@@ -270,6 +361,7 @@ class NineLivesPanel extends HTMLElement {
     const tidy = result.suggested_ids || {};
     this._state.removedDetails = result.removed_details || {};
     this._state.tidyUsage = result.suggested_usage || {};
+    this._state.fits = result.fits || {};
     this._state.pairs = olds.map((old) => ({
       old,
       new: byOld[old] || "",
@@ -285,6 +377,7 @@ class NineLivesPanel extends HTMLElement {
       ...this._ids(),
       pairs: this._chosenPairs(),
     });
+    this._state.applyAck = false;
     this._go("preview");
   }
 
@@ -423,13 +516,25 @@ class NineLivesPanel extends HTMLElement {
       <p class="muted">${esc(t.intro)}</p>
       <input id="filter" type="search" placeholder="${esc(t.search)}" value="${esc(s.filter)}">
       <label>${esc(t.oldDevice)}${oldSelect}</label>
+      ${s.oldId ? this._functionLine(s.compare?.old) : ""}
       ${this._removedSupported === false && !s.fromDeleted ? "" : `<p><a href="#" id="mode">${esc(s.fromDeleted ? t.normalLink : t.removedLink)}</a></p>`}
       ${s.fromDeleted ? "" : this._identifyButton(s.oldId)}
       <label>${esc(t.newDevice)}<select id="new">${options(s.newId, s.oldId, true)}</select></label>
+      ${s.newId ? this._functionLine(s.compare?.new) : ""}
       ${this._identifyButton(s.newId)}
+      ${
+        this._mismatch()
+          ? this._danger(
+              t.mismatchTitle,
+              t.mismatchText,
+              `<label class="ack"><input id="ack" type="checkbox" ${s.ack ? "checked" : ""}> ${esc(t.mismatchAck)}</label>`
+            )
+          : ""
+      }
       ${mixedUp ? `<p class="warn">${esc(t.swappedHint)} <button id="swap-sides" class="small">${esc(t.swapSides)}</button></p>` : ""}
+      ${this._backupNote()}
       <div class="actions">
-        <button id="next" class="primary" ${s.oldId && s.newId ? "" : "disabled"}>${esc(t.next)}</button>
+        <button id="next" class="primary" ${s.oldId && s.newId && s.compare?.compatible != null && (!this._mismatch() || s.ack) ? "" : "disabled"}>${esc(t.next)}</button>
       </div>`;
   }
 
@@ -460,8 +565,12 @@ class NineLivesPanel extends HTMLElement {
             : "";
         const value = (id) =>
           id && this._stateText(id) ? `<div class="value">${esc(this._stateText(id))}</div>` : "";
+        const unfit =
+          p.new && !(s.fits?.[p.old] || []).includes(p.new)
+            ? `<div class="unfit">⚠ ${esc(t.pairUnfit)}</div>`
+            : "";
         return `<tr><td>${esc(this._entityLabel(p.old))}${value(p.old)}</td><td class="arrow">←</td>
-          <td><select data-pair="${i}">${options}</select>${value(p.new)}</td></tr>${tidy}`;
+          <td><select data-pair="${i}">${options}</select>${value(p.new)}${unfit}</td></tr>${tidy}`;
       })
       .join("");
     const free = s.newEntities.filter((n) => !used.has(n));
@@ -488,8 +597,30 @@ class NineLivesPanel extends HTMLElement {
     const blocked = plan.files.filter((f) => f.blocked);
     const reports = plan.reports || [];
     const list = (items, fn) => `<ul>${items.map(fn).join("")}</ul>`;
+    const unfit = this._unfitPairs();
+    const risky = this._mismatch() || unfit.length > 0;
+    const ack = risky
+      ? `<label class="ack"><input id="apply-ack" type="checkbox" ${this._state.applyAck ? "checked" : ""}> ${esc(t.mismatchAck)}</label>`
+      : "";
+    const unfitList = unfit.length
+      ? (this._mismatch() ? `<p>${esc(t.unfitTitle)}:</p>` : "") +
+        list(
+          unfit,
+          (p) =>
+            `<li><code>${esc(p.new)}</code> → <code>${esc(plan.pairs.find((x) => x.new === p.new)?.final || p.old)}</code></li>`
+        )
+      : "";
     return `
       <h2>${esc(t.previewTitle)}</h2>
+      ${
+        risky
+          ? this._danger(
+              this._mismatch() ? t.mismatchTitle : t.unfitTitle,
+              this._mismatch() ? t.mismatchText : t.unfitText,
+              unfitList + ack
+            )
+          : ""
+      }
       <h3>${esc(t.renames)}</h3><ul>${renames}</ul>
       <h3>${esc(t.deviceChanges)}</h3>
       <ul><li>${esc(t.deviceArea)}</li><li>${esc(plan.from_deleted ? t.deviceFromDeleted : t.deviceDisable)}</li></ul>
@@ -498,9 +629,10 @@ class NineLivesPanel extends HTMLElement {
       ${reviews.length ? `<h3 class="warn">${esc(t.reviews)}</h3>` + list(reviews, (r) => `<li>${esc(r.path)}: ${esc(r.reason)}</li>`) : ""}
       ${blocked.length ? `<h3 class="warn">${esc(t.blocked)}</h3>` + list(blocked, (f) => `<li>${esc(f.kind)}: ${esc(this._reason(f.blocked))}</li>`) : ""}
       ${reports.length ? `<h3 class="warn">${esc(t.manual)}</h3>` + list(reports, (r) => `<li>${esc(r.where)}: ${esc(this._reason(r.reason))}</li>`) : ""}
+      ${this._backupNote()}
       <div class="actions">
         <button id="back">${esc(t.back)}</button>
-        <button id="apply" class="primary">${esc(t.apply)}</button>
+        <button id="apply" class="primary" ${risky && !this._state.applyAck ? "disabled" : ""}>${esc(t.apply)}</button>
       </div>`;
   }
 
@@ -616,10 +748,18 @@ class NineLivesPanel extends HTMLElement {
     });
     on("#old", "change", (e) => {
       this._state.oldId = e.target.value;
-      this._render();
+      this._compare();
     });
     on("#new", "change", (e) => {
       this._state.newId = e.target.value;
+      this._compare();
+    });
+    on("#ack", "change", (e) => {
+      this._state.ack = e.target.checked;
+      this._render();
+    });
+    on("#apply-ack", "change", (e) => {
+      this._state.applyAck = e.target.checked;
       this._render();
     });
     on("#next", "click", () => this._propose());
@@ -627,11 +767,11 @@ class NineLivesPanel extends HTMLElement {
       e.preventDefault();
       this._state.fromDeleted = !this._state.fromDeleted;
       this._state.oldId = "";
-      this._render();
+      this._compare();
     });
     on("#swap-sides", "click", () => {
       [this._state.oldId, this._state.newId] = [this._state.newId, this._state.oldId];
-      this._render();
+      this._compare();
     });
     this.shadowRoot.querySelectorAll("button[data-identify]").forEach((el) =>
       el.addEventListener("click", (e) => this._identify(e.target.dataset.identify))
@@ -703,6 +843,15 @@ const STYLE = `
   .muted { color: var(--secondary-text-color); }
   a { color: var(--primary-color); font-size: 14px; }
   .warn { color: var(--warning-color, #ff9800); }
+  .function { margin: 6px 0 10px; font-size: 14px; }
+  .danger { margin: 16px 0; padding: 12px 14px; border: 2px solid var(--error-color, #db4437);
+    border-radius: 8px; background: color-mix(in srgb, var(--error-color, #db4437) 12%, transparent); }
+  .danger > strong { color: var(--error-color, #db4437); font-size: 16px; }
+  .danger p { margin: 6px 0; }
+  label.ack { display: flex; gap: 8px; align-items: center; margin: 10px 0 0; font-weight: 500; }
+  label.ack input { width: auto; margin: 0; }
+  .unfit { margin-top: 4px; font-size: 13px; font-weight: 500; color: var(--error-color, #db4437); }
+  .note { margin: 16px 0 0; padding: 8px 12px; font-size: 14px; border-left: 3px solid var(--warning-color, #ff9800); }
   .error { color: var(--error-color, #db4437); }
   .ok { color: var(--success-color, #43a047); font-weight: 500; }
   code { font-size: 13px; }

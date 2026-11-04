@@ -67,6 +67,10 @@ step, shows everything first and can undo it.
 
 5. Once everything works, remove the old device from its integration.
 
+**⚠ Create a Home Assistant backup before a swap.** The undo only covers what Nine Lives
+changes. Nine Lives is provided as is, without warranty or liability, as stated in the
+[MIT License](https://github.com/Schnuecks/ha-nine-lives/blob/main/LICENSE). You use it at your own risk.
+
 ## Installation
 
 Nine Lives needs Home Assistant 2026.10 or newer.

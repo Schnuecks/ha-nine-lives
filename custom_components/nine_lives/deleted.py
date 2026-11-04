@@ -219,6 +219,7 @@ def entity_infos(device: RemovedDevice, last: dict[str, State]) -> list[EntityIn
                 unit=attrs.get("unit_of_measurement"),
                 state_class=attrs.get("state_class"),
                 name=entry.name or attrs.get("friendly_name"),
+                category=getattr(entry, "entity_category", None),
             )
         )
     return infos

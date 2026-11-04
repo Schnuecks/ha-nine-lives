@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+# Every device can have these, they say nothing about what it is for.
+_NOT_A_FUNCTION = {"button", "device_tracker", "update"}
+
 
 @dataclass(frozen=True)
 class EntityInfo:
@@ -16,6 +19,7 @@ class EntityInfo:
     unit: str | None = None
     state_class: str | None = None
     name: str | None = None
+    category: str | None = None
 
     @property
     def domain(self) -> str:
@@ -66,6 +70,36 @@ def _score(old: EntityInfo, new: EntityInfo) -> int:
     if same_suffix:
         score += 2
     return score
+
+
+def fits(old: EntityInfo, new: EntityInfo) -> bool:
+    """Whether the automatic pairing would accept these two entities."""
+    return _score(old, new) > 0
+
+
+def main_functions(entities: list[EntityInfo]) -> list[tuple[str, str | None]]:
+    """What a device is for: its entities except diagnostics, settings and controls."""
+    return sorted(
+        {
+            (e.domain, e.device_class)
+            for e in entities
+            if not e.category and e.domain not in _NOT_A_FUNCTION
+        },
+        key=lambda f: (f[0], f[1] or ""),
+    )
+
+
+def functions_match(
+    old: list[tuple[str, str | None]], new: list[tuple[str, str | None]]
+) -> bool:
+    """Whether two devices share a main function; a missing device class may match."""
+    if not old and not new:
+        return True
+    return any(
+        o_domain == n_domain and (not o_class or not n_class or o_class == n_class)
+        for o_domain, o_class in old
+        for n_domain, n_class in new
+    )
 
 
 def propose_pairs(old: list[EntityInfo], new: list[EntityInfo]) -> Pairing:

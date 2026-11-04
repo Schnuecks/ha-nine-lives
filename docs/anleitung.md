@@ -23,8 +23,13 @@ kurzen Überblick und die Installation findest du in der [README](../README.de.m
 3. **Abgesteckt oder kaputt ist kein Problem.** Das alte Gerät darf schon nicht mehr
    erreichbar sein. Bei Zählern nimmt Nine Lives dann den Stand, den die Statistik zuletzt
    erfasst hat.
-4. **Ein Backup schadet nicht.** Nine Lives legt für Rückgängig eine eigene Sicherung an,
-   aber ein Backup von Home Assistant vor dem ersten Tausch gibt zusätzliche Sicherheit.
+4. **Ein Backup erstellen.** Nine Lives legt für Rückgängig eine eigene Sicherung an, die
+   deckt aber nur ab, was Nine Lives ändert. Erstelle vor einem Tausch ein Backup von Home
+   Assistant. Die Nutzung erfolgt auf eigene Gefahr, ohne Gewähr und Haftung (siehe Lizenz).
+5. **Gleiches durch Gleiches ersetzen.** Das Panel zeigt die Hauptfunktion beider Geräte und
+   warnt, wenn sie keine gemeinsam haben, etwa bei einem Netzwerk-Switch und einer Lampe.
+   Auch unpassende Paare werden markiert. Nach einer Bestätigung geht es trotzdem weiter,
+   das neue Gerät übernimmt dann aber IDs und Verlauf, die nicht passen.
 
 ## Der Tausch Schritt für Schritt
 
