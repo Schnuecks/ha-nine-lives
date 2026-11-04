@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Home%20Assistant-2026.10%2B-41BDF5?logo=homeassistant&logoColor=white" alt="Home Assistant 2026.10+">
-  <img src="https://img.shields.io/badge/HACS-custom-41BDF5" alt="HACS benutzerdefiniertes Repository">
+  <img src="https://img.shields.io/badge/HACS-default-41BDF5" alt="HACS-Standardliste">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4C9A2A" alt="Lizenz MIT"></a>
   <img src="https://img.shields.io/badge/maintained-yes-4C9A2A" alt="Gepflegt">
 </p>
@@ -73,9 +73,7 @@ rückgängig machen.
 
 Nine Lives braucht Home Assistant 2026.10 oder neuer.
 
-**HACS:** In HACS das Menü → **Benutzerdefinierte Repositories** öffnen,
-`https://github.com/Schnuecks/ha-nine-lives` mit dem Typ **Integration** hinzufügen, dann
-**Nine Lives** installieren und Home Assistant neu starten.
+**HACS:** In HACS nach **Nine Lives** suchen, herunterladen und Home Assistant neu starten.
 
 **Von Hand:** `custom_components/nine_lives` in den Ordner `custom_components` deiner
 Home-Assistant-Konfiguration kopieren und neu starten.
