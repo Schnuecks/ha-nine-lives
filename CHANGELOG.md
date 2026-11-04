@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## 1.2.4
+
+### Fixed
+- The README no longer shows stray HTML around the screenshots inside HACS. The
+  screenshots now use the light variant everywhere.
+
 ## 1.2.3
 
 ### Changed
