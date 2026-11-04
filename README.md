@@ -71,7 +71,10 @@ step, shows everything first and can undo it.
 
 Nine Lives needs Home Assistant 2026.10 or newer.
 
-**HACS:** search for **Nine Lives** in HACS, download it and restart Home Assistant.
+**HACS:** use the button or search for **Nine Lives** in HACS, then download it and restart
+Home Assistant.
+
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Schnuecks&repository=ha-nine-lives&category=integration)
 
 **Manually:** copy `custom_components/nine_lives` into the `custom_components` folder of
 your Home Assistant configuration and restart.
