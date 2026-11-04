@@ -14,7 +14,7 @@ from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integrat
 
 from . import deleted, energy
 from .const import DOMAIN
-from .matching import EntityInfo, propose_pairs
+from .matching import EntityInfo, fits, functions_match, main_functions, propose_pairs
 from .swap import SwapError, SwapManager, async_plan, async_suggest_ids
 
 _DEVICES = {
@@ -39,6 +39,7 @@ def async_register(hass: HomeAssistant) -> None:
     for command in (
         ws_devices,
         ws_removed_devices,
+        ws_compare,
         ws_propose,
         ws_preview,
         ws_apply,
@@ -66,6 +67,7 @@ def _entity_infos(hass: HomeAssistant, device_id: str) -> list[EntityInfo]:
                 unit=entry.unit_of_measurement or attrs.get("unit_of_measurement"),
                 state_class=(entry.capabilities or {}).get("state_class"),
                 name=entry.name or entry.original_name,
+                category=entry.entity_category,
             )
         )
     return infos
@@ -79,6 +81,42 @@ def _new_ids(msg: dict[str, Any]) -> dict[str, str]:
     return {
         p["old"]: p["new_entity_id"] for p in msg["pairs"] if p.get("new_entity_id")
     }
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "nine_lives/compare",
+        vol.Optional("old_device_id"): str,
+        vol.Optional("new_device_id"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_compare(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """What the chosen devices are for and, with both chosen, whether that matches."""
+
+    async def functions(device_id: str | None) -> list[tuple[str, str | None]]:
+        if not device_id:
+            return []
+        if (removed := deleted.removed_device(hass, device_id)) is not None:
+            last = await deleted.async_last_states(
+                hass, [e.entity_id for e in removed.entities]
+            )
+            return main_functions(deleted.entity_infos(removed, last))
+        return main_functions(_entity_infos(hass, device_id))
+
+    old_id, new_id = msg.get("old_device_id"), msg.get("new_device_id")
+    old, new = await functions(old_id), await functions(new_id)
+    connection.send_result(
+        msg["id"],
+        {
+            "old": [{"domain": d, "device_class": c} for d, c in old],
+            "new": [{"domain": d, "device_class": c} for d, c in new],
+            "compatible": functions_match(old, new) if old_id and new_id else None,
+        },
+    )
 
 
 @websocket_api.websocket_command(
@@ -113,7 +151,8 @@ async def ws_propose(
             }
     else:
         old_infos = _entity_infos(hass, msg["old_device_id"])
-    result = propose_pairs(old_infos, _entity_infos(hass, msg["new_device_id"]))
+    new_infos = _entity_infos(hass, msg["new_device_id"])
+    result = propose_pairs(old_infos, new_infos)
     olds = [o.entity_id for o, _ in result.pairs] + [
         e.entity_id for e in result.unmatched_old
     ]
@@ -125,6 +164,10 @@ async def ws_propose(
             "pairs": [
                 {"old": o.entity_id, "new": n.entity_id} for o, n in result.pairs
             ],
+            "fits": {
+                o.entity_id: [n.entity_id for n in new_infos if fits(o, n)]
+                for o in old_infos
+            },
             "suggested_ids": {old: s["id"] for old, s in suggestions.items()},
             "suggested_usage": usage,
             "removed_details": removed_details,

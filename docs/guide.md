@@ -22,8 +22,13 @@ overview and the installation see the [README](../README.md).
    manufacturer's app first, see [Old device already removed](#old-device-already-removed).
 3. **Unplugged or broken is fine.** The old device may already be unavailable. For meters
    Nine Lives then uses the last reading the statistics recorded.
-4. **A backup does not hurt.** Nine Lives keeps its own backup for undo, but a Home Assistant
-   backup before the first swap gives extra safety.
+4. **Create a backup.** Nine Lives keeps its own backup for undo, but that only covers what
+   it changes. Create a Home Assistant backup before a swap. You use Nine Lives at your own
+   risk, without warranty or liability (see the license).
+5. **Replace like with like.** The panel shows the main function of both devices and warns
+   when they have none in common, for example a network switch and a lamp. Pairs that do not
+   fit are marked too. You can continue after confirming, but the new device then takes over
+   IDs and history that do not fit.
 
 ## The swap step by step
 

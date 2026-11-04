@@ -1,6 +1,12 @@
 """Tests for pairing old and new entities."""
 
-from custom_components.nine_lives.matching import EntityInfo, propose_pairs
+from custom_components.nine_lives.matching import (
+    EntityInfo,
+    fits,
+    functions_match,
+    main_functions,
+    propose_pairs,
+)
 
 
 def _e(entity_id, device_class=None, unit=None, state_class=None, name=None):
@@ -80,3 +86,37 @@ def test_appended_numbers_do_not_hide_the_end_of_the_id() -> None:
     new = [_e("button.new_plug_identify", "identify")]
 
     assert len(propose_pairs(old, new).pairs) == 1
+
+
+def test_fits_follows_the_pairing_rules() -> None:
+    temperature = _e("sensor.a_temperature", "temperature", "°C")
+    assert fits(temperature, _e("sensor.b_temperature", "temperature", "°C"))
+    assert not fits(temperature, _e("sensor.b_humidity", "humidity", "%"))
+    assert not fits(_e("light.a"), _e("switch.b"))
+
+
+def test_main_functions_skip_diagnostics_settings_and_controls() -> None:
+    entities = [
+        _e("light.lamp"),
+        _e("update.lamp", "firmware"),
+        _e("button.lamp_identify", "identify"),
+        EntityInfo("number.lamp_level", "reg", category="config"),
+        EntityInfo("sensor.lamp_uptime", "reg", "uptime", category="diagnostic"),
+    ]
+    assert main_functions(entities) == [("light", None)]
+
+
+def test_functions_match() -> None:
+    light = [("light", None)]
+    assert functions_match(light, light)
+    assert functions_match([], [])
+    assert not functions_match([], light)
+    assert not functions_match(light, [("switch", None)])
+    # A plug may call its switch an outlet, the replacement may not.
+    assert functions_match([("switch", "outlet")], [("switch", None)])
+    assert not functions_match([("sensor", "temperature")], [("sensor", "humidity")])
+    # One function in common is enough, the pairs are checked one by one.
+    assert functions_match(
+        [("sensor", "temperature"), ("sensor", "humidity")],
+        [("sensor", "temperature"), ("binary_sensor", "motion")],
+    )

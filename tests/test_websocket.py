@@ -88,6 +88,102 @@ async def test_propose_preview_apply_undo(
     assert ent_reg.async_get("sensor.new_temperature").unique_id == "new-temperature"
 
 
+async def test_compare_reports_main_functions(
+    hass: HomeAssistant, hass_ws_client, devices
+):
+    ent_reg = er.async_get(hass)
+    lamp = dr.async_get(hass).async_get_or_create(
+        config_entry_id=hass.config_entries.async_entries(DOMAIN)[0].entry_id,
+        identifiers={("lamp", "lamp")},
+    )
+    ent_reg.async_get_or_create("light", "lamp", "lamp", device_id=lamp.id)
+    ent_reg.async_get_or_create(
+        "update",
+        "lamp",
+        "firmware",
+        device_id=lamp.id,
+        entity_category=er.EntityCategory.CONFIG,
+    )
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id(
+        {"type": "nine_lives/compare", "old_device_id": devices["old"]}
+    )
+    alone = (await client.receive_json())["result"]
+    assert alone["compatible"] is None
+    assert {"domain": "sensor", "device_class": "humidity"} in alone["old"]
+    assert alone["new"] == []
+
+    await client.send_json_auto_id(
+        {
+            "type": "nine_lives/compare",
+            "old_device_id": devices["old"],
+            "new_device_id": devices["new"],
+        }
+    )
+    assert (await client.receive_json())["result"]["compatible"] is True
+
+    await client.send_json_auto_id(
+        {
+            "type": "nine_lives/compare",
+            "old_device_id": devices["old"],
+            "new_device_id": lamp.id,
+        }
+    )
+    other = (await client.receive_json())["result"]
+    assert other["compatible"] is False
+    assert other["new"] == [{"domain": "light", "device_class": None}]
+
+
+async def test_compare_reads_removed_devices(
+    hass: HomeAssistant, hass_ws_client, devices
+):
+    cfg = MockConfigEntry(domain="gone")
+    cfg.add_to_hass(hass)
+    dev_reg = dr.async_get(hass)
+    gone = dev_reg.async_get_or_create(
+        config_entry_id=cfg.entry_id, identifiers={("gone", "removed-one")}
+    )
+    er.async_get(hass).async_get_or_create(
+        "sensor",
+        "gone",
+        "removed-one-temperature",
+        config_entry=cfg,
+        device_id=gone.id,
+        original_device_class="temperature",
+    )
+    dev_reg.async_remove_device(gone.id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id(
+        {
+            "type": "nine_lives/compare",
+            "old_device_id": gone.id,
+            "new_device_id": devices["new"],
+        }
+    )
+    result = (await client.receive_json())["result"]
+    # Removed entries keep no device class of their own; it comes from the last state.
+    assert result["old"] == [{"domain": "sensor", "device_class": None}]
+    assert result["compatible"] is True
+
+
+async def test_propose_tells_which_new_entities_fit(
+    hass: HomeAssistant, hass_ws_client, devices
+):
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {
+            "type": "nine_lives/propose",
+            "old_device_id": devices["old"],
+            "new_device_id": devices["new"],
+        }
+    )
+    fits = (await client.receive_json())["result"]["fits"]
+    assert fits["sensor.old_temperature"] == ["sensor.new_temperature"]
+
+
 async def test_errors_are_reported(hass: HomeAssistant, hass_ws_client, devices):
     client = await hass_ws_client(hass)
 
