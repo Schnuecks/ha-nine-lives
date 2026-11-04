@@ -851,7 +851,8 @@ const STYLE = `
   label.ack { display: flex; gap: 8px; align-items: center; margin: 10px 0 0; font-weight: 500; }
   label.ack input { width: auto; margin: 0; }
   .unfit { margin-top: 4px; font-size: 13px; font-weight: 500; color: var(--error-color, #db4437); }
-  .note { margin: 16px 0 0; padding: 8px 12px; font-size: 14px; border-left: 3px solid var(--warning-color, #ff9800); }
+  .note { margin: 16px 0 0; font-size: 13px; color: var(--secondary-text-color); }
+  .note a { font-size: inherit; color: inherit; }
   .error { color: var(--error-color, #db4437); }
   .ok { color: var(--success-color, #43a047); font-weight: 500; }
   code { font-size: 13px; }
