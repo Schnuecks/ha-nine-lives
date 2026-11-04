@@ -1,13 +1,13 @@
-<p align="center"><img src="docs/logo.svg" width="96" alt="Nine Lives"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/logo.svg" width="96" alt="Nine Lives"></p>
 
 # Nine Lives
 
-**English** · [Deutsch](README.de.md)
+**English** · [Deutsch](https://github.com/Schnuecks/ha-nine-lives/blob/main/README.de.md)
 
 <p align="center">
   <img src="https://img.shields.io/badge/Home%20Assistant-2026.10%2B-41BDF5?logo=homeassistant&logoColor=white" alt="Home Assistant 2026.10+">
   <img src="https://img.shields.io/badge/HACS-default-41BDF5" alt="HACS default">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4C9A2A" alt="License MIT"></a>
+  <a href="https://github.com/Schnuecks/ha-nine-lives/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-4C9A2A" alt="License MIT"></a>
   <img src="https://img.shields.io/badge/maintained-yes-4C9A2A" alt="Maintained">
 </p>
 
@@ -15,10 +15,10 @@ Give a device a new life: replace it in Home Assistant without breaking your aut
 dashboards and history – for example when moving sensors from Zigbee to Thread/Matter, or
 when a broken device is swapped for a new one.
 
-**New here?** The [guide](docs/guide.md) explains a swap step by step and what exactly
+**New here?** The [guide](https://github.com/Schnuecks/ha-nine-lives/blob/main/docs/guide.md) explains a swap step by step and what exactly
 happens behind it.
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/preview-dark.png"><img src="docs/screenshots/preview.png" width="720" alt="Preview of a swap"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/preview-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/preview.png" width="720" alt="Preview of a swap"></picture></p>
 
 ## Why
 
@@ -56,14 +56,14 @@ step, shows everything first and can undo it.
    Home Assistant, so pair the new device first.
 2. Check the proposed pairs. Entities without a partner stay where they are.
 
-   <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/pairs-dark.png"><img src="docs/screenshots/pairs.png" width="640" alt="Entity pairs"></picture>
+   <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs.png" width="640" alt="Entity pairs"></picture>
 
 3. The preview lists every entity ID that is taken over and every place that changes or
    needs your attention.
 4. **Swap devices.** The old device is disabled, the new one gets its area and labels, and a
    notification sums up what is left to do.
 
-   <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/done-dark.png"><img src="docs/screenshots/done.png" width="640" alt="Swap done, meter correction pending"></picture>
+   <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/done-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/done.png" width="640" alt="Swap done, meter correction pending"></picture>
 
 5. Once everything works, remove the old device from its integration.
 
@@ -92,7 +92,7 @@ Nine Lives**. The panel appears in the sidebar for admins.
 - **Device triggers:** a trigger like "button pressed" of a Zigbee remote may not exist on
   the new device. Such triggers are rewritten but flagged for review.
 - **Old device already deleted?** Its entities can still be taken over from the entries Home
-  Assistant keeps after a removal, see the [guide](docs/guide.md#old-device-already-removed).
+  Assistant keeps after a removal, see the [guide](https://github.com/Schnuecks/ha-nine-lives/blob/main/docs/guide.md#old-device-already-removed).
 - **Undo** works as long as the old device still exists. Once you removed it from its
   integration, the swap is final and no longer offers undo; it stays in the list of completed
   swaps.
@@ -109,7 +109,7 @@ ruff check . && ruff format --check . && pytest
 
 The tests also pin down the Home Assistant behaviour the swap relies on (how the recorder
 treats renamed entities and meter resets), so a change in Home Assistant shows up before it
-can cost anyone their history. See [CONTRIBUTING](CONTRIBUTING.md).
+can cost anyone their history. See [CONTRIBUTING](https://github.com/Schnuecks/ha-nine-lives/blob/main/CONTRIBUTING.md).
 
 ## How it's built
 
@@ -131,9 +131,9 @@ it keeps the project going. Thank you!
 
 Bug reports and ideas are welcome as
 [GitHub issues](https://github.com/Schnuecks/ha-nine-lives/issues). See also
-[CONTRIBUTING](CONTRIBUTING.md) and [SECURITY](SECURITY.md).
+[CONTRIBUTING](https://github.com/Schnuecks/ha-nine-lives/blob/main/CONTRIBUTING.md) and [SECURITY](https://github.com/Schnuecks/ha-nine-lives/blob/main/SECURITY.md).
 
-What changed in each version is listed in the [CHANGELOG](CHANGELOG.md).
+What changed in each version is listed in the [CHANGELOG](https://github.com/Schnuecks/ha-nine-lives/blob/main/CHANGELOG.md).
 
 **What to expect:** Nine Lives is a hobby project that I use in my own Home Assistant. I look
 at issues and pull requests as time allows, without a guaranteed response time. It
@@ -143,4 +143,4 @@ and easy to trust.
 
 ## License
 
-Copyright (c) 2026 Schnuecks. Released under the [MIT License](LICENSE).
+Copyright (c) 2026 Schnuecks. Released under the [MIT License](https://github.com/Schnuecks/ha-nine-lives/blob/main/LICENSE).

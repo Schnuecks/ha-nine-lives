@@ -1,13 +1,13 @@
-<p align="center"><img src="docs/logo.svg" width="96" alt="Nine Lives"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/logo.svg" width="96" alt="Nine Lives"></p>
 
 # Nine Lives
 
-[English](README.md) · **Deutsch**
+[English](https://github.com/Schnuecks/ha-nine-lives/blob/main/README.md) · **Deutsch**
 
 <p align="center">
   <img src="https://img.shields.io/badge/Home%20Assistant-2026.10%2B-41BDF5?logo=homeassistant&logoColor=white" alt="Home Assistant 2026.10+">
   <img src="https://img.shields.io/badge/HACS-default-41BDF5" alt="HACS-Standardliste">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4C9A2A" alt="Lizenz MIT"></a>
+  <a href="https://github.com/Schnuecks/ha-nine-lives/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-4C9A2A" alt="Lizenz MIT"></a>
   <img src="https://img.shields.io/badge/maintained-yes-4C9A2A" alt="Gepflegt">
 </p>
 
@@ -15,10 +15,10 @@ Einem Gerät ein neues Leben geben: es in Home Assistant ersetzen, ohne Automati
 Dashboards und Verlauf zu zerstören – zum Beispiel beim Umzug von Sensoren von Zigbee auf
 Thread/Matter oder wenn ein defektes Gerät gegen ein neues getauscht wird.
 
-**Neu hier?** Die [Anleitung](docs/anleitung.md) erklärt einen Tausch Schritt für Schritt
+**Neu hier?** Die [Anleitung](https://github.com/Schnuecks/ha-nine-lives/blob/main/docs/anleitung.md) erklärt einen Tausch Schritt für Schritt
 und was genau dabei passiert.
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/preview-de-dark.png"><img src="docs/screenshots/preview-de.png" width="720" alt="Vorschau eines Tauschs"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/preview-de-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/preview-de.png" width="720" alt="Vorschau eines Tauschs"></picture></p>
 
 ## Warum
 
@@ -58,14 +58,14 @@ rückgängig machen.
    in Home Assistant sein, das neue Gerät also vorher koppeln.
 2. Die vorgeschlagene Zuordnung prüfen. Entitäten ohne Partner bleiben, wo sie sind.
 
-   <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/pairs-de-dark.png"><img src="docs/screenshots/pairs-de.png" width="640" alt="Zuordnung der Entitäten"></picture>
+   <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs-de-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs-de.png" width="640" alt="Zuordnung der Entitäten"></picture>
 
 3. Die Vorschau zeigt jede übernommene Entity-ID und jede Stelle, die sich ändert oder um die
    du dich kümmern solltest.
 4. **Geräte tauschen.** Das alte Gerät wird deaktiviert, das neue bekommt seinen Bereich und
    seine Labels, und eine Benachrichtigung fasst zusammen, was noch zu tun ist.
 
-   <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/done-de-dark.png"><img src="docs/screenshots/done-de.png" width="640" alt="Tausch fertig, Zähler-Korrektur in Arbeit"></picture>
+   <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/done-de-dark.png"><img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/done-de.png" width="640" alt="Tausch fertig, Zähler-Korrektur in Arbeit"></picture>
 
 5. Wenn alles läuft, das alte Gerät aus seiner Integration entfernen.
 
@@ -95,7 +95,7 @@ Nine Lives** einrichten. Das Panel erscheint für Admins in der Seitenleiste.
   neuen Gerät vielleicht nicht. Solche Trigger werden umgeschrieben, aber zur Prüfung markiert.
 - **Altes Gerät schon gelöscht?** Seine Entitäten lassen sich trotzdem übernehmen, aus den
   Einträgen, die Home Assistant nach dem Löschen behält, siehe die
-  [Anleitung](docs/anleitung.md#altes-gerät-schon-gelöscht).
+  [Anleitung](https://github.com/Schnuecks/ha-nine-lives/blob/main/docs/anleitung.md#altes-gerät-schon-gelöscht).
 - **Rückgängig** geht, solange das alte Gerät noch existiert. Hast du es aus seiner
   Integration entfernt, ist der Tausch endgültig und bietet kein Rückgängig mehr an; er bleibt
   in der Liste der durchgeführten Gerätetausche stehen.
@@ -113,7 +113,7 @@ ruff check . && ruff format --check . && pytest
 Die Tests halten auch das Verhalten von Home Assistant fest, auf das sich der Tausch verlässt
 (wie der Recorder umbenannte Entitäten und Zähler-Resets behandelt). Ändert Home Assistant
 daran etwas, fällt es auf, bevor es jemanden seinen Verlauf kostet. Siehe
-[CONTRIBUTING](CONTRIBUTING.md).
+[CONTRIBUTING](https://github.com/Schnuecks/ha-nine-lives/blob/main/CONTRIBUTING.md).
 
 ## Wie es entsteht
 
@@ -135,9 +135,9 @@ auf Ko-fi ausgeben; das hält das Projekt am Laufen. Danke!
 
 Fehler und Ideen sind als
 [Issue auf GitHub](https://github.com/Schnuecks/ha-nine-lives/issues) willkommen. Siehe auch
-[CONTRIBUTING](CONTRIBUTING.md) und [SECURITY](SECURITY.md).
+[CONTRIBUTING](https://github.com/Schnuecks/ha-nine-lives/blob/main/CONTRIBUTING.md) und [SECURITY](https://github.com/Schnuecks/ha-nine-lives/blob/main/SECURITY.md).
 
-Was sich in einer Version geändert hat, steht im [CHANGELOG](CHANGELOG.md) (auf Englisch).
+Was sich in einer Version geändert hat, steht im [CHANGELOG](https://github.com/Schnuecks/ha-nine-lives/blob/main/CHANGELOG.md) (auf Englisch).
 
 **Was du erwarten kannst:** Nine Lives ist ein Hobby-Projekt, das ich in meinem eigenen
 Home Assistant nutze. Issues und Pull Requests schaue ich mir an, wenn ich Zeit habe, ohne
@@ -147,4 +147,4 @@ würden, lehne ich eventuell ab, damit es klein und vertrauenswürdig bleibt.
 
 ## Lizenz
 
-Copyright (c) 2026 Schnuecks. Veröffentlicht unter der [MIT-Lizenz](LICENSE).
+Copyright (c) 2026 Schnuecks. Veröffentlicht unter der [MIT-Lizenz](https://github.com/Schnuecks/ha-nine-lives/blob/main/LICENSE).
