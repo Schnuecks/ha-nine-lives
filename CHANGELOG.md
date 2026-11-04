@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## 1.2.3
+
+### Changed
+- Nine Lives is now in the HACS default list. The READMEs explain installing it from
+  there and link straight to it.
+
+### Fixed
+- The logo, screenshots and links in the README now also work inside HACS.
+
 ## 1.2.2
 
 ### Fixed
