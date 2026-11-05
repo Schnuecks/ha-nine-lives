@@ -56,6 +56,9 @@ rückgängig machen.
 
 1. **Nine Lives** in der Seitenleiste öffnen und altes und neues Gerät wählen. Beide müssen
    in Home Assistant sein, das neue Gerät also vorher koppeln.
+
+   <img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/warning-de.png" width="640" alt="Warnung bei Geräten ohne gemeinsame Hauptfunktion">
+
 2. Die vorgeschlagene Zuordnung prüfen. Entitäten ohne Partner bleiben, wo sie sind.
 
    <img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs-de.png" width="640" alt="Zuordnung der Entitäten">
