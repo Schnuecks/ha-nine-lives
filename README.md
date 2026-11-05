@@ -54,6 +54,9 @@ step, shows everything first and can undo it.
 
 1. Open **Nine Lives** in the sidebar and pick the old and the new device. Both must be in
    Home Assistant, so pair the new device first.
+
+   <img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/warning.png" width="640" alt="Warning for devices without a common main function">
+
 2. Check the proposed pairs. Entities without a partner stay where they are.
 
    <img src="https://raw.githubusercontent.com/Schnuecks/ha-nine-lives/main/docs/screenshots/pairs.png" width="640" alt="Entity pairs">
