@@ -7,10 +7,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## 1.4.0
 
 ### Added
-- A Battery Notes note moves to the new device with the swap: its entities keep their IDs,
-  the date the battery was last replaced stays, and the battery type comes from Battery
-  Notes' library for the new model. A note the new device already got is replaced; undo
-  moves everything back.
+- Notes that describe the device from the outside, such as battery notes, move to the new
+  device with the swap: their entities keep their IDs, the battery type follows the new
+  model, and undo moves everything back.
 - The preview lists what else hangs on the old device: what moves along and what stays.
 
 ## 1.3.1
