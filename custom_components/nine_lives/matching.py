@@ -8,6 +8,15 @@ from dataclasses import dataclass, field
 # Every device can have these, they say nothing about what it is for.
 _NOT_A_FUNCTION = {"button", "device_tracker", "update"}
 
+# Device classes that only say where the same kind of sensor is mounted: a contact
+# sensor reports "door" or "window" by the maker's choice, not by what it measures.
+_KINDRED_CLASSES = [{"door", "window", "garage_door", "opening"}]
+
+
+def _same_class(a: str | None, b: str | None) -> bool:
+    """Whether two device classes describe the same thing."""
+    return a == b or any(a in group and b in group for group in _KINDRED_CLASSES)
+
 
 @dataclass(frozen=True)
 class EntityInfo:
@@ -45,7 +54,7 @@ def _score(old: EntityInfo, new: EntityInfo) -> int:
     if old.domain != new.domain:
         return 0
     same_suffix = _suffix(old.entity_id) == _suffix(new.entity_id)
-    if old.device_class != new.device_class:
+    if not _same_class(old.device_class, new.device_class):
         # A temperature sensor never replaces a humidity sensor. If only one side has
         # a device class, the unit has to confirm the match (LQI is not illuminance),
         # or, when the unit is unknown too, the end of the ID.
@@ -60,6 +69,8 @@ def _score(old: EntityInfo, new: EntityInfo) -> int:
     score = 1
     if old.device_class and old.device_class == new.device_class:
         score += 4
+    elif old.device_class and _same_class(old.device_class, new.device_class):
+        score += 3
     if old.unit == new.unit:
         score += 2
     if old.state_class == new.state_class:
@@ -96,7 +107,8 @@ def functions_match(
     if not old and not new:
         return True
     return any(
-        o_domain == n_domain and (not o_class or not n_class or o_class == n_class)
+        o_domain == n_domain
+        and (not o_class or not n_class or _same_class(o_class, n_class))
         for o_domain, o_class in old
         for n_domain, n_class in new
     )
