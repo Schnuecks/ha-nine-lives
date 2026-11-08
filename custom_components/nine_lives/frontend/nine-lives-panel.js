@@ -47,6 +47,12 @@ const STRINGS = {
     reviews: "Please check afterwards",
     blocked: "Not changed",
     manual: "Please adjust by hand",
+    attached: "Also on the old device",
+    attachedMoves: (n, battery, own) =>
+      `moves to the new device (${n} entities keep their IDs)` +
+      (battery ? `, battery type from its library: ${battery}` : "") +
+      (own ? ", replaces the note the new device already has" : ""),
+    attachedStays: (n) => `stays on the old device (${n} entities), adjust by hand if needed`,
     reason_yaml_file: "refers to the old device",
     reason_yaml_dashboard: "YAML dashboard, refers to the old device",
     reason_yaml_tags: "uses YAML tags such as !secret or !include",
@@ -146,6 +152,12 @@ const STRINGS = {
     reviews: "Bitte danach prüfen",
     blocked: "Nicht geändert",
     manual: "Bitte von Hand anpassen",
+    attached: "Außerdem am alten Gerät",
+    attachedMoves: (n, battery, own) =>
+      `zieht zum neuen Gerät um (${n} Entitäten behalten ihre IDs)` +
+      (battery ? `, Batterietyp laut Bibliothek: ${battery}` : "") +
+      (own ? ", ersetzt die Notiz, die das neue Gerät schon hat" : ""),
+    attachedStays: (n) => `bleibt am alten Gerät (${n} Entitäten), bei Bedarf von Hand anpassen`,
     reason_yaml_file: "verweist auf das alte Gerät",
     reason_yaml_dashboard: "YAML-Dashboard, verweist auf das alte Gerät",
     reason_yaml_tags: "nutzt YAML-Tags wie !secret oder !include",
@@ -290,6 +302,12 @@ class NineLivesPanel extends HTMLElement {
 
   _ids() {
     return { old_device_id: this._state.oldId, new_device_id: this._state.newId };
+  }
+
+  _integrationName(domain) {
+    if (domain === "battery_notes") return "Battery Notes";
+    const name = this._hass?.localize?.(`component.${domain}.title`);
+    return name || domain.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   }
 
   _reason(code) {
@@ -624,6 +642,18 @@ class NineLivesPanel extends HTMLElement {
       <h3>${esc(t.renames)}</h3><ul>${renames}</ul>
       <h3>${esc(t.deviceChanges)}</h3>
       <ul><li>${esc(t.deviceArea)}</li><li>${esc(plan.from_deleted ? t.deviceFromDeleted : t.deviceDisable)}</li></ul>
+      ${
+        (plan.attached || []).length
+          ? `<h3>${esc(t.attached)}</h3>` +
+            list(
+              plan.attached,
+              (a) =>
+                `<li><b>${esc(this._integrationName(a.integration))}</b>: ${esc(
+                  a.moves ? t.attachedMoves(a.entities.length, a.battery, a.replaces_own) : t.attachedStays(a.entities.length)
+                )}${a.moves ? "" : `<br><span class="muted">${a.entities.map((e) => `<code>${esc(e)}</code>`).join(" ")}</span>`}</li>`
+            )
+          : ""
+      }
       <h3>${esc(t.refs)}</h3>
       ${changes.length ? list(changes, (c) => `<li>${esc(c.path)}</li>`) : `<p class="muted">${esc(t.noRefs)}</p>`}
       ${reviews.length ? `<h3 class="warn">${esc(t.reviews)}</h3>` + list(reviews, (r) => `<li>${esc(r.path)}: ${esc(r.reason)}</li>`) : ""}

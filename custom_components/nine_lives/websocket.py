@@ -14,6 +14,7 @@ from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integrat
 
 from . import deleted, energy
 from .const import DOMAIN
+from .followers import FOLLOWER_PLATFORMS
 from .matching import EntityInfo, fits, functions_match, main_functions, propose_pairs
 from .swap import SwapError, SwapManager, async_plan, async_suggest_ids
 
@@ -57,6 +58,8 @@ def _manager(hass: HomeAssistant) -> SwapManager:
 def _entity_infos(hass: HomeAssistant, device_id: str) -> list[EntityInfo]:
     infos = []
     for entry in er.async_entries_for_device(er.async_get(hass), device_id):
+        if entry.platform in FOLLOWER_PLATFORMS:
+            continue
         state = hass.states.get(entry.entity_id)
         attrs = state.attributes if state else {}
         infos.append(
