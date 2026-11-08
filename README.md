@@ -44,10 +44,9 @@ step, shows everything first and can undo it.
   can adjust every pair.
 - **Preview and undo:** every change is listed before it happens, and recent swaps can be
   undone with one click.
-- **Battery Notes moves along:** a note from the Battery Notes integration follows the swap
-  to the new device, keeps its entity IDs and the date the battery was last replaced, and
-  takes the battery type for the new model from Battery Notes' library. The preview also
-  lists anything else on the old device that stays behind.
+- **Notes about the device move along:** integrations that describe a device from the
+  outside, such as battery notes, follow the swap to the new device and keep their entity
+  IDs. The preview also lists anything else on the old device that stays behind.
 - **Tidier IDs on request:** an old ID that no longer matches its name can get a fitting
   one. Automations, scripts, scenes, dashboards, helpers such as groups and the energy
   dashboard are adjusted along; IDs used in YAML files or other integrations' settings stay.
