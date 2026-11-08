@@ -45,6 +45,10 @@ rückgängig machen.
   Reihenfolge; jedes Paar lässt sich anpassen.
 - **Vorschau und Rückgängig:** Jede Änderung wird vorher aufgelistet, und die letzten Tausche
   lassen sich mit einem Klick rückgängig machen.
+- **Battery Notes zieht mit:** Eine Notiz der Integration Battery Notes folgt dem Tausch
+  zum neuen Gerät, behält ihre Entity-IDs und das Datum des letzten Batteriewechsels und
+  übernimmt den Batterietyp des neuen Modells aus der Bibliothek von Battery Notes. Die
+  Vorschau listet außerdem auf, was sonst noch am alten Gerät hängt und dort bleibt.
 - **Aufgeräumte IDs auf Wunsch:** Eine alte ID, die nicht mehr zum Namen passt, kann eine
   passende bekommen. Automationen, Skripte, Szenen, Dashboards, Helfer wie Gruppen und das
   Energie-Dashboard werden mit angepasst; IDs, die in YAML-Dateien oder Einstellungen anderer

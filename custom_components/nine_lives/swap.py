@@ -37,7 +37,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.file import write_utf8_file_atomic
 from homeassistant.util.yaml import dump, parse_yaml
 
-from . import deleted, energy, notice, scan
+from . import deleted, energy, followers, notice, scan
 from .const import DOMAIN
 from .references import Change, Review, rewrite
 
@@ -96,6 +96,8 @@ class Plan:
     from_deleted: bool = False
     # Helpers and the energy dashboard that use an entity whose ID changes.
     settings: list[scan.SettingsPlan] = field(default_factory=list)
+    # Other integrations on the old device: Battery Notes moves along, others stay.
+    attached: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -134,6 +136,7 @@ class Plan:
             ],
             "reports": [asdict(r) for r in self.reports],
             "from_deleted": self.from_deleted,
+            "attached": self.attached,
         }
 
 
@@ -264,6 +267,9 @@ async def async_plan(
     reports += await scan.async_yaml_reports(hass, id_map)
     settings, setting_reports = await scan.async_plan_settings(hass, new_ids)
     reports += setting_reports
+    attached = await followers.async_preview(
+        hass, old_device_id, dev_reg.async_get(new_device_id), set(olds)
+    )
     return Plan(
         old_device_id,
         new_device_id,
@@ -275,6 +281,7 @@ async def async_plan(
         new_ids,
         from_deleted,
         settings,
+        attached,
     )
 
 
@@ -682,6 +689,16 @@ class SwapManager:
                 _free_entity_id(hass, old_id)
                 ent_reg.async_update_entity(old_id, new_entity_id=target)
 
+        # Battery Notes and the like: their note moves to the new device.
+        try:
+            moved = await followers.async_move(hass, plan.old_device_id, new_device)
+        except Exception:  # noqa: BLE001 - the swap itself is done, keep going
+            _LOGGER.exception("Moving the battery note failed")
+            moved = None
+        if moved:
+            self.backups[backup_id]["followers"] = moved
+            await self._async_save()
+
         # Devices: area and labels to the new one, the old one is switched off.
         dev_reg.async_update_device(
             new_device.id,
@@ -786,6 +803,12 @@ class SwapManager:
                 _free_entity_id(hass, current)
                 ent_reg.async_update_entity(current, new_entity_id=new["entity_id"])
             _restore_customizations(ent_reg, new["entity_id"], new)
+
+        try:
+            await followers.async_restore(hass, backup.get("followers"))
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Moving the battery note back failed")
+            notes.append("Battery Notes: move the note back to the old device by hand")
 
         new_device = backup["new_device"]
         if dev_reg.async_get(new_device["id"]):

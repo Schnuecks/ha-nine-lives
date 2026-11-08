@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+- A Battery Notes note moves to the new device with the swap: its entities keep their IDs,
+  the date the battery was last replaced stays, and the battery type comes from Battery
+  Notes' library for the new model. A note the new device already got is replaced; undo
+  moves everything back.
+- The preview lists what else hangs on the old device: what moves along and what stays.
+
 ## 1.3.1
 
 ### Fixed

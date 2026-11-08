@@ -25,6 +25,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
+from .followers import FOLLOWER_PLATFORMS
 from .matching import EntityInfo
 
 # Entities removed this close to their device count as belonging to it.
@@ -210,6 +211,8 @@ def entity_infos(device: RemovedDevice, last: dict[str, State]) -> list[EntityIn
     """What the pairing needs, from the removed entries and their last states."""
     infos = []
     for entry in device.entities:
+        if entry.platform in FOLLOWER_PLATFORMS:
+            continue
         attrs = last[entry.entity_id].attributes if entry.entity_id in last else {}
         infos.append(
             EntityInfo(
