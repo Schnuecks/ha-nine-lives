@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## 1.3.1
+
+### Fixed
+- Contact sensors that report a door and ones that report a window count as the same
+  kind of device, so an old window sensor can be replaced by one that calls itself a
+  door. Before, the swap was flagged as a different device and the contact was left
+  unpaired.
+
 ## 1.3.0
 
 ### Added

@@ -120,3 +120,25 @@ def test_functions_match() -> None:
         [("sensor", "temperature"), ("sensor", "humidity")],
         [("sensor", "temperature"), ("binary_sensor", "motion")],
     )
+
+
+def test_contact_sensors_match_whether_door_or_window() -> None:
+    # The old sensor said window, its replacement says door: still a contact.
+    assert functions_match([("binary_sensor", "window")], [("binary_sensor", "door")])
+    assert not functions_match(
+        [("binary_sensor", "window")], [("binary_sensor", "motion")]
+    )
+    old = [
+        _e("binary_sensor.fenster", "window"),
+        _e("sensor.fenster_battery", "battery", "%"),
+    ]
+    new = [
+        _e("binary_sensor.myggbett_door", "door"),
+        _e("binary_sensor.myggbett_motion", "motion"),
+        _e("sensor.myggbett_battery", "battery", "%"),
+    ]
+    pairs = {o.entity_id: n.entity_id for o, n in propose_pairs(old, new).pairs}
+    assert pairs == {
+        "binary_sensor.fenster": "binary_sensor.myggbett_door",
+        "sensor.fenster_battery": "sensor.myggbett_battery",
+    }
